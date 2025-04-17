@@ -1,0 +1,14 @@
+defaults:
+  - base
+  - _self_
+
+cell_line: HepG2
+exp_name: HepG2sp
+
+base_path: ${paths.dir.data_path}/ATAC
+
+bw: ${cell_line.base_path}/HepG2-ENCFF262URW.bigwig
+peaks: ${cell_line.base_path}/HepG2-ENCFF439EIO.bed
+
+# for training on bounded dataset - keep 20% of WG dataset
+lower_bound: 8.2

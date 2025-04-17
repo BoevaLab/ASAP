@@ -1,0 +1,14 @@
+defaults:
+  - base
+  - _self_
+
+cell_line: GM12878
+exp_name: GM12878sp
+
+base_path: ${paths.dir.data_path}/ATAC
+
+bw: ${cell_line.base_path}/GM12878-ENCFF667MDI.bigwig
+peaks: ${cell_line.base_path}/GM12878-ENCFF748UZH.bed
+
+# for training on bounded dataset - keep 20% of WG dataset
+lower_bound: 5.4

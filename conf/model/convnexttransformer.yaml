@@ -1,0 +1,8 @@
+defaults:
+  - base
+  - _self_
+
+name: ConvNeXtTransformer
+model:
+  _target_: src.models.ConvNeXtTransformer
+  use_map: ${model.use_map}

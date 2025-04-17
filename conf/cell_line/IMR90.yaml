@@ -1,0 +1,14 @@
+defaults:
+  - base
+  - _self_
+
+cell_line: IMR90
+exp_name: IMR90sp
+
+base_path: ${paths.dir.data_path}/ATAC
+
+bw: ${cell_line.base_path}/IMR90-ENCFF770EAV.bigWig
+peaks: ${cell_line.base_path}/IMR90-ENCFF243NTP.bed
+
+# for training on bounded dataset - keep 20% of WG dataset
+lower_bound: 3.4

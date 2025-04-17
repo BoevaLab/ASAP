@@ -1,0 +1,13 @@
+defaults:
+  - base
+  - _self_
+
+dir:
+  data_path: /cluster/work/boeva/lkasak/data
+  generated: /cluster/work/boeva/lkasak/tmp
+  tmp: ${oc.env:TMPDIR}
+
+genome:
+  fa: ${paths.dir.data_path}/hg38.fa
+  blacklist: ${paths.dir.data_path}/basenji_blacklist.bed
+  unmappable: ${paths.dir.data_path}/basenji_unmappable.bed

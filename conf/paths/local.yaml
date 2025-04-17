@@ -1,0 +1,11 @@
+defaults:
+  - base
+  - _self_
+
+dir:
+  data_path: data
+
+genome:
+  fa: ${paths.dir.data_path}/hg38.fa
+  blacklist: ${paths.dir.data_path}/basenji_blacklist.bed
+  unmappable: ${paths.dir.data_path}/basenji_unmappable.bed
