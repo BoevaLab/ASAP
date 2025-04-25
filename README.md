@@ -35,7 +35,7 @@ This repository provides a framework for fine-grained prediction of chromatin ac
    * `cell_line` can be [GM12878, K562, IMR90, HepG2, TCGA-A6-A567, TCGA-B9-A44B, TCGA-HE-A5NH, TCGA-QG-A5YV]
    * `model.use_map=True` can be additionally used to include additional mappability information
 
-* To train a model on all chromosomes omitting the single-nucleotide-variant (SNV) positions
+* To train a model on all chromosomes, omitting the single-nucleotide-variant (SNV) positions
    
     ```bash
    $ python run_hydra.py run_script=train_all model=convnextdcnn experiment_name=convnextdcnn_TCGA-A6-A567 +cell_line=TCGA-A6-A567 paths=local
@@ -53,25 +53,25 @@ This repository provides a framework for fine-grained prediction of chromatin ac
    $ python sbatch.py --gpu 4 --cpu 8 --mem 128 --time 72:00:00 -p run_script=train model=convnextdcnn experiment_name=convnextdcnn_GM12878_0 +cell_line=GM12878 train.fold=0 train.trainer.max_epochs=50
     ```
 
-   **This can be extended to all the following tasks -- evaluations, SNV predictions, and exporting predictions as bigwigs.**
+   **This can be extended to all tasks -- evaluations, SNV predictions, and exporting predictions as bigwigs.**
 
 
 ## Generate Evaluations
 
-* To obtain Pearson's correlation and variation scores on peaks and whole genome of unseen chromosomes
+* To obtain Pearson's correlation and variation scores on peaks and the whole genome of unseen chromosomes
     ```bash
    $ python run_hydra.py run_script=eval model=convnextdcnn experiment_name=convnextdcnn_GM12878_0 +cell_line=GM12878 eval.fold=0 paths=local
     ```
    This generates `data/results.csv` and `data/robustness.csv` containing the required scores.
 
-## Predict SNVs
+## Predict Allele-Specfic ATAC-seq
 
 * One can predict the effect of SNVs using a pre-trained model.
 
     ```bash
    $ python run_hydra.py run_script=predict_snv model=convnextdcnn experiment_name=convnextdcnn_TCGA-A6-A567 +cell_line=TCGA-A6-A567 paths=local
     ```
-   Here the SNVs are defined in `conf/cell_line/TCGA-A6-A567`. 
+   Here, the SNVs are defined in `conf/cell_line/TCGA-A6-A567`. 
 
    This generates a csv with allele-specific predicted signals in `data/generated/predictions`.
 
@@ -82,4 +82,4 @@ This repository provides a framework for fine-grained prediction of chromatin ac
     ```bash
    $ python hydra.py run_script=export_predictions model=convnextdcnn experiment_name=convnextdcnn_GM12878_1 +cell_line=$cell_type export_predictions.chrom=17 paths=local
     ```
-   The above command uses model trainined with fold=1 where chromsome 17 is a test chromosome.
+   The above command uses a model trained with fold=1, where chromosome 17 is a test chromosome.
