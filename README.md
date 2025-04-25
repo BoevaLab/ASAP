@@ -64,7 +64,7 @@ This repository provides a framework for fine-grained prediction of chromatin ac
     ```
    This generates `data/results.csv` and `data/robustness.csv` containing the required scores.
 
-## Predict Allele-Specfic ATAC-seq
+## Predict ATAC-seq for SNVs
 
 * One can predict the effect of SNVs using a pre-trained model.
 
