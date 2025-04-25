@@ -1,4 +1,4 @@
-# ASAP: Allele-specifc ATAC-seq Prediction
+# ASAP: Allele-Specifc ATAC-seq Prediction
 ### Early feature extraction determines performance: systematic evaluation of deep learning models for high-resolution chromatin accessibility prediction
 
 This repository provides a framework for fine-grained prediction of chromatin accessibility from DNA sequence, using ConvNeXt V2 blocks as powerful feature extractors. By integrating these blocks into diverse model architectures—including CNNs, LSTMs, dilated CNNs, and transformers—we demonstrate consistent performance gains, with the ConvNeXt-based dilated CNN achieving the most robust and shape-preserving predictions of ATAC-seq signal at 4 bp resolution. Our codebase includes benchmarks and tools for cell type-specific chromatin modeling at high resolution.
