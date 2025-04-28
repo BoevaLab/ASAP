@@ -1,7 +1,9 @@
 # ASAP: Allele-Specific ATAC-seq Prediction
 ### Early feature extraction determines performance: systematic evaluation of deep learning models for high-resolution chromatin accessibility prediction
 
-This repository provides a framework for fine-grained prediction of chromatin accessibility from DNA sequence, using ConvNeXt V2 blocks as powerful feature extractors. By integrating these blocks into diverse model architectures—including CNNs, LSTMs, dilated CNNs, and transformers—we demonstrate consistent performance gains, with the ConvNeXt-based dilated CNN achieving the most robust and shape-preserving predictions of ATAC-seq signal at 4 bp resolution. Our codebase includes benchmarks and tools for cell type-specific chromatin modeling at high resolution.
+[![Preprint](https://img.shields.io/badge/preprint-available-green)](https://doi.org/10.1101/2025.03.01.641000) &nbsp;
+
+This repository provides a framework for fine-grained prediction of chromatin accessibility from DNA sequence, using ConvNeXt V2 blocks as powerful feature extractors. By integrating these blocks into diverse model architectures—including CNNs, LSTMs, dilated CNNs, and transformers—we demonstrate consistent performance gains, with the ConvNeXt-based dilated CNN achieving the most robust and shape-preserving predictions of ATAC-seq signal at 4 bp resolution. Our codebase includes benchmarks and tools for cell-type-specific chromatin modeling at high resolution.
 
 ##  Setting Up the Environment
 
@@ -83,3 +85,16 @@ This repository provides a framework for fine-grained prediction of chromatin ac
    $ python hydra.py run_script=export_predictions model=convnextdcnn experiment_name=convnextdcnn_GM12878_1 +cell_line=$cell_type export_predictions.chrom=17 paths=local
     ```
    The above command uses a model trained with fold=1, where chromosome 17 is a test chromosome.
+
+## Citing ASAP
+If you use ASAP in your work, you can cite it using
+```BibTex
+@article{grover2025evaluation,
+  title={Evaluation of deep learning approaches for high-resolution chromatin accessibility prediction from genomic sequence},
+  author={Grover, Aayush and Muser, Till and Kasak, Liine and Zhang, Lin and Krymova, Ekaterina and Boeva, Valentina},
+  journal={bioRxiv},
+  pages={2025--03},
+  year={2025},
+  publisher={Cold Spring Harbor Laboratory}
+}
+```
