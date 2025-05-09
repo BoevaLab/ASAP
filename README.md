@@ -11,7 +11,7 @@ ASAP is a python package for fine-grained prediction of chromatin accessibility 
 ## Features
 
 * Data Processing: Create datasets for whole-genome and peak-based analysis with support for blacklists and unmappable regions.
-* Model Training: Train convolutional neural networks (e.g., ConvNext DCNN) on genomic data with customizable chromosome splits for training and validation.
+* Model Training: Train deep neural networks (e.g., ConvNext DCNN) on genomic data with customizable chromosome splits for training and validation.
 * Model Evaluation: Evaluate model performance on peak and whole-genome datasets, including robustness testing.
 * Prediction: Export model predictions and predict SNV effects on ATAC-seq data.
 * Scalability: Support for multi-GPU training and efficient data handling.
