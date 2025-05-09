@@ -65,7 +65,7 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/BoevaLab/ASAP"
 Repository = "https://github.com/BoevaLab/ASAP"
-Documentation = "https://github.com/BoevaLab/ASAP/blob/main/README.md"
+Documentation = "https://github.com/BoevaLab/ASAP/wiki"
 
 [tool.setuptools]
 packages = ["asap", "asap.snv", "asap.utils", "asap.models", "asap.dataloader", "asap.trainer", "asap.models.layers", "asap.dataloader.utils"]

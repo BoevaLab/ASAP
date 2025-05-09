@@ -2,6 +2,7 @@
 ### Early feature extraction determines performance: systematic evaluation of deep learning models for high-resolution chromatin accessibility prediction
 
 [![Preprint](https://img.shields.io/badge/preprint-available-green)](https://doi.org/10.1101/2025.03.01.641000) &nbsp;
+[![Wiki](https://img.shields.io/badge/Wiki-Documentation-yellow)](https://github.com/BoevaLab/ASAP/wiki)
 
 ASAP is a python package for fine-grained prediction of chromatin accessibility from DNA sequence, using ConvNeXt V2 blocks as powerful feature extractors. By integrating these blocks into diverse model architectures, including CNNs, LSTMs, dilated CNNs, and transformers, we demonstrate consistent performance gains, with the ConvNeXt-based dilated CNN achieving the most robust and shape-preserving predictions of ATAC-seq signal at 4 bp resolution. 
 
