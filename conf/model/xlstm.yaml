@@ -1,8 +1,0 @@
-defaults:
-  - base
-  - _self_
-
-name: xLSTM
-model:
-  _target_: src.models.ConvNeXt_XLSTM
-  use_map: ${model.use_map}
