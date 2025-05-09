@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atac-asap"
+version = "0.1.0"
+description = "A package for Allele-specific ATAC-seq prediction (ASAP)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+authors = [
+    { name = "Aayush Grover", email = "aayush.grover@inf.ethz.ch" },
+    { name = "Till Muser", email = "till.muser@sdsc.ethz.ch" },
+    { name = "Liine Kasak", email = "lkasak@student.ethz.ch" },
+    { name = "Lin Zhang", email = "lin.zhang@sdsc.ethz.ch" },
+    { name = "Ekaterina Krymova", email = "ekaterina.krymova@sdsc.ethz.ch" },
+    { name = "Valentina Boeva", email = "valentina.boeva@inf.ethz.ch" }
+]
+dependencies = [
+    "antlr4-python3-runtime~=4.9.3",
+    "dacite",
+    "filelock>=3.13.1",
+    "fsspec>=2023.12.2",
+    "hydra-core~=1.3.2",
+    "importlib-metadata~=7.0.1",
+    "jinja2~=3.1.3",
+    "mpmath~=1.3.0",
+    "networkx>=3.1",
+    "numpy>=1.12.0,<2.0",
+    "omegaconf~=2.3.0",
+    "packaging>=23.2",
+    "pandas>=2.0",
+    "pillow~=10.2.0",
+    "pybigwig>=0.3.22",
+    "pyfaidx>=0.8.1.1",
+    "pysam>=0.22.0",
+    "python-dateutil~=2.8.2",
+    "pytz~=2023.3.post1",
+    "pyyaml~=6.0.1",
+    "scipy>=1.10.0",
+    "six~=1.16.0",
+    "sympy~=1.12",
+    "torch==2.1.2",
+    "torchaudio==2.1.2",
+    "torchinfo~=1.8.0",
+    "torchmetrics",  # Unpinned due to frequent updates and backward compatibility
+    "torchvision==0.16.2",
+    "tqdm>=4.66.1",
+    "tzdata~=2023.4",
+    "zipp~=3.17.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "pytest",
+    "pytest-xdist",
+]
+
+[project.urls]
+Homepage = "https://github.com/BoevaLab/ASAP"
+Repository = "https://github.com/BoevaLab/ASAP"
+Documentation = "https://github.com/BoevaLab/ASAP/blob/main/README.md"
+
+[tool.setuptools]
+packages = ["asap", "asap.snv", "asap.utils", "asap.models", "asap.dataloader", "asap.trainer", "asap.models.layers", "asap.dataloader.utils"]
+package-dir = { "" = "src" }

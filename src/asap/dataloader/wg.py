@@ -1,0 +1,46 @@
+from asap.dataloader.bounded import BoundedDataset
+from typing import List
+
+class WGDataset(BoundedDataset):
+    def __init__(
+        self,
+        genome: str,
+        signal_files: str,
+        chroms: List[int],
+        window_size: int,
+        margin_size: int,
+        step_size: int = None,
+        bin_size: int = 100,
+        random_shift=False,
+        augmentations=False,
+        blacklist_file=None,
+        unmap_file=None,
+        unmap_threshold=None,
+        logspace=False,
+        output_format="ohe",
+        memmap=False,
+        generated=None,
+        is_train=False,
+        is_robustness=False,
+    ):
+        super().__init__(
+            genome=genome,
+            signal_files=signal_files,
+            chroms=chroms,
+            window_size=window_size,
+            margin_size=margin_size,
+            step_size=step_size,
+            bin_size=bin_size,
+            random_shift=random_shift,
+            augmentations=augmentations,
+            lower_bound=None,
+            blacklist_file=blacklist_file,
+            unmap_file=unmap_file,
+            unmap_threshold=unmap_threshold,
+            logspace=logspace,
+            output_format=output_format,
+            memmap=memmap,
+            generated=generated,
+            is_train=is_train,
+            is_robustness=is_robustness,
+        )
