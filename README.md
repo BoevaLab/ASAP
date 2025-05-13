@@ -58,7 +58,7 @@ Trains the selected model using training and validation datasets.
 
 Args:
    * `experiment_name` (str): The name of the experiment. This will be used to save model checkpoints.
-   * `model` (nn.Module): The name of the model to train. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
+   * `model` (str): The name of the model to train. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
    * `train_dataset` (asap.dataloader.WGDataset): The training dataset.
    * `val_dataset` (asap.dataloader.WGDataset): The validation dataset.
    * `logs_dir` (str): The directory where model is saved. 
@@ -109,7 +109,7 @@ Evaluates the pre-trained model on peak or whole-genome dataset.
 
 Args:
    * `experiment_name` (str): The name of the experiment. This will be used to load model checkpoints.
-   * `model` (nn.Module): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
+   * `model` (str): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
    * `eval_dataset` (asap.dataloader.BaseDataset): The test dataset used for model evaluation.
    * `logs_dir` (str): The directory to load model checkpoints from.
    * `batch_size` (int): The batch size for evaluation.
@@ -151,7 +151,7 @@ Evaluates the pre-trained model for robustness on peak or whole-genome dataset.
 
 Args:
    * `experiment_name` (str): The name of the experiment. This will be used to load model checkpoints.
-   * `model` (nn.Module): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
+   * `model` (str): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
    * `eval_dataset` (asap.dataloader.BaseDataset): The test dataset used for model evaluation.
    * `logs_dir` (str): The directory to load model checkpoints from.
    * `batch_size` (int): The batch size for evaluation.
@@ -171,7 +171,7 @@ Predict ATAC-seq for SNVs using a pre-trained model. The results are stored in a
 
 Args:
    * `experiment_name` (str): The name of the experiment. This will be used to load model checkpoints.
-   * `model` (nn.Module): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
+   * `model` (str): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
    * `snv_file` (str): The path to the SNV VCF file.
    * `signal_file` (str): The path to the signal file.
    * `logs_dir` (str): The directory to save logs.
@@ -193,7 +193,7 @@ Export a pre-trained model's predictions as bigwig. One file will be generated f
 
 Args:
    * `experiment_name` (str): The name of the experiment. This will be used to load model checkpoints.
-   * `model` (nn.Module): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
+   * `model` (str): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
    * `eval_dataset` (asap.dataloader.WGDataset): The whole-genome dataset corresponding to which predictions will be generated.
    * `logs_dir` (str): The directory to load model checkpoints from.
    * `out_dir` (str): The directory to save bigwigs. 
