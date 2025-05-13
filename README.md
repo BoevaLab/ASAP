@@ -22,7 +22,7 @@ ASAP is available on PyPI and can be installed using pip:
 ```bash
 pip install atac-asap
 ```
-Ensure you have the required dependencies installed, including Python 3.8+.
+Please make sure you have Python 3.8+.
 
 ## Usage
 
