@@ -6,7 +6,7 @@ from typing import Tuple
 def get_chr_seq(genome: str, chrom: int) -> np.ndarray:
     print(f'Loading genome file: {genome}')
     genome_seq = Fasta(genome)
-    chr_seq = genome_seq[f'chr{chrom}'][0:-1].seq
+    chr_seq = genome_seq[f'chr{chrom}'][:].seq
     return seq_to_idx(chr_seq)
 
 def seq_to_idx(seq: str) -> np.array:
