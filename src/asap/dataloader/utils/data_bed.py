@@ -19,8 +19,8 @@ def load_vcf_file(vcf_path: str) -> pd.DataFrame:
                 break
         
         df = pd.read_csv(f, sep='\t', names=header, comment='#')
-        df['start'] = df['POS']
-        df['end'] = df['POS'] + df['REF'].str.len() - 1
+        df['start'] = df['POS'] - 1
+        df['end'] = df['POS'] + df['REF'].str.len() - 2
         
         df['chr'] = df['CHROM'].str.replace('chr', '', regex=False)
         return df[['chr', 'start', 'end']]

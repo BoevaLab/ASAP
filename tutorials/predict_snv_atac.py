@@ -28,8 +28,8 @@ def main():
         out_dir=logs_dir,
         genome=genome,
         chroms=chroms,
+        export_bigwig="alt" # Generate bigwig files for the alternative alleles. Use "ref" for reference alleles or "both" for both alleles.
     )
-
 
 if __name__ == "__main__":
     main()
