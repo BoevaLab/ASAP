@@ -105,13 +105,13 @@ Returns:
 asap.eval_model(experiment_name, model, eval_dataset, logs_dir, batch_size=64, use_map=False)
 ```
 
-Evaluates the pre-trained model on peak or whole-genome dataset.
+Evaluates the pre-trained model on the peak or whole-genome dataset.
 
 Args:
    * `experiment_name` (str): The name of the experiment. This will be used to load model checkpoints.
    * `model` (str): The model name to evaluate. Choose from [cnn, lstm, dcnn, convnext_cnn, convnext_lstm, convnext_dcnn, convnext_transformer].
    * `eval_dataset` (asap.dataloader.BaseDataset): The test dataset used for model evaluation.
-   * `logs_dir` (str): The directory to load model checkpoints from.
+   * `logs_dir` (str): The directory from which to load model checkpoints.
    * `batch_size` (int): The batch size for evaluation.
    * `use_map` (bool): If mappability information was used during training.
 
@@ -165,7 +165,7 @@ Returns:
 An example script to predict SNV effects using asap has been defined in `tutorials/predict_snv_atac.py`.
 
 ```python
-asap.predict_snv_atac(experiment_name, model, snv_file, signal_file, logs_dir, out_dir, genome, chroms=[*range(1,23)], use_map=False)
+asap.predict_snv_atac(experiment_name, model, snv_file, signal_file, logs_dir, out_dir, genome, chroms=[*range(1,23)], use_map=False, export_bigwig=None)
 ```
 Predict ATAC-seq for SNVs using a pre-trained model. The results are stored in a csv with allele-specific predictions for each SNV.
 
@@ -178,7 +178,8 @@ Args:
    * `out_path` (str): The output path for results.
    * `genome` (str): The reference genome.
    * `chroms` (List[int]): List of chromosomes to consider for prediction.
-   * `use_map` (bool): Whether to use mappability for model.
+   * `use_map` (bool): Whether to use mappability for the model.
+   * `export_bigwig` (str): Export predictions as bigwig. Choose from [ref, alt, both].
 
 Returns:
    * None
