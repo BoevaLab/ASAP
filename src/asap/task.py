@@ -173,7 +173,7 @@ def eval_robustness(experiment_name: str, model: str, eval_dataset: BaseDataset,
         scores[chrom] = {'cov': float(np.nanmean(cov)), 'cov_per_bin': {f'bin_{i}': float(cov_per_bin[i]) for i in range(len(cov_per_bin))}}
     return scores
 
-def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_file: str, logs_dir: str, out_dir: str, genome: str, chroms: List[int]=[*range(1,23)], use_map: bool=False, export_bigwig: str=None):
+def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_file: str, logs_dir: str, out_dir: str, genome: str, chroms: List[int]=[*range(1,23)], use_map: bool=False, export_bigwig: str=None, scale: dict | float=1.0):
     """
     Predict ATAC-seq for SNVs using the trained model.
     Args:
@@ -187,6 +187,7 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
         chroms (List[int]): List of chromosomes to predict on.
         use_map (bool): Whether to use mappability for model.
         export_bigwig (str): Export predictions as bigwig for "ref", "alt", or "both".
+        scale (dict | float): Scaling factor for the predictions. If a dict, it should contain scaling factor corresponding to each chromosome.
     """
     window_size = 1024
     margin_size = 512
@@ -239,6 +240,14 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
         chroms = results['chr'].unique()
         bw_in = pyBigWig.open(signal_file, 'r')
 
+        # Check if scale is a dict or a float
+        if isinstance(scale, dict):
+            assert all(chrom in scale for chrom in chroms), "Scale dictionary must contain scaling factors for all chromosomes."
+        elif isinstance(scale, (int, float)):
+            scale = {chrom: scale for chrom in chroms}
+        else:
+            raise ValueError("Scale must be a dict or a float.")
+
         # Create output bigwig files
         ref_flg, alt_flg = False, False
         if export_bigwig == 'ref' or export_bigwig == 'both':
@@ -251,6 +260,13 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
             alt_flg = True
         
         for chrom in tqdm(chroms):
+            scale_factor = scale[chrom]
+            if isinstance(scale_factor, (int, float)):
+                scale_factor = float(scale_factor)
+            else:
+                raise ValueError(f"Scale factor for chromosome {chrom} must be a number.")
+            
+
             chrom_df = results[results['chr'] == chrom]
             chrom_df = chrom_df.sort_values(by=['pos'])
             chrom_df = chrom_df.reset_index(drop=True)
@@ -264,6 +280,7 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
 
             interval_idx = 0
             region_idx = 0
+            prev_region_end = -1
 
             while interval_idx < len(intervals) or region_idx < len(chrom_df):
                 # Handle variant regions
@@ -272,22 +289,25 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
                     # Add unmodified intervals before the region
                     while interval_idx < len(intervals) and intervals[interval_idx][0] < region_start:
                         i_start, i_end, i_value = intervals[interval_idx]
+                        if i_start < prev_region_end:
+                            i_start = prev_region_end
                         if i_end > region_start:
                             # Truncate interval if it overlaps the region
                             if i_start < region_start:
                                 starts.append(i_start)
                                 ends.append(region_start)
                                 if ref_flg:
-                                    values1.append(i_value)
+                                    values1.append(scale_factor*i_value)
                                 if alt_flg:
-                                    values2.append(i_value)
+                                    values2.append(scale_factor*i_value)
                         else:
-                            starts.append(i_start)
-                            ends.append(i_end)
-                            if ref_flg:
-                                values1.append(i_value)
-                            if alt_flg:
-                                values2.append(i_value)
+                            if i_start < region_start:
+                                starts.append(i_start)
+                                ends.append(i_end)
+                                if ref_flg:
+                                    values1.append(scale_factor*i_value)
+                                if alt_flg:
+                                    values2.append(scale_factor*i_value)
                         interval_idx += 1
 
                     # Add the modified region (x-512 to x+512) with vector y
@@ -305,25 +325,29 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
                         starts.append(bin_start)
                         ends.append(bin_end)
                         if ref_flg:
-                            values1.append(y1[i])
+                            values1.append(scale_factor*y1[i])
                         if alt_flg:
-                            values2.append(y2[i])
+                            values2.append(scale_factor*y2[i])
                     region_idx += 1
 
                     # Skip input intervals that overlap the modified region
                     while interval_idx < len(intervals) and intervals[interval_idx][1] <= region_end:
                         interval_idx += 1
 
+                    prev_region_end = region_end
+
                 # Copy remaining intervals
                 else:
                     while interval_idx < len(intervals):
                         i_start, i_end, i_value = intervals[interval_idx]
+                        if i_start < prev_region_end:
+                            i_start = prev_region_end
                         starts.append(i_start)
                         ends.append(i_end)
                         if ref_flg:
-                            values1.append(i_value)
+                            values1.append(scale_factor*i_value)
                         if alt_flg:
-                            values2.append(i_value)
+                            values2.append(scale_factor*i_value)
                         interval_idx += 1
 
             # Write intervals for this chromosome
