@@ -32,7 +32,7 @@ def add_predictions(snv: pd.DataFrame, chroms: List[int], bw_file: str, model: n
 
         pos = chr_df['pos'].sort_values()
         min_distance = pos.diff().dropna().min()
-        assert min_distance >= 1024, f"Min distance between the SNVs is {min_distance}. It should be >= {window_size}."
+        assert min_distance >= window_size, f"Min distance between the SNVs is {min_distance}. It should be >= {window_size}."
 
         n_samples = len(chr_df)
         if n_samples == 0:
