@@ -6,10 +6,10 @@ import asap
 def main():
 
     # Data paths
-    signal_file = "/cluster/work/boeva/lkasak/data/TCGA-A6-A567/TCGA-A6-A567.nodup.no_chrM_MT.tn5.pval.signal.bigwig"
-    genome = "/cluster/work/boeva/lkasak/data/hg38.fa"
-    logs_dir = "/cluster/work/boeva/lkasak/tmp/logs"
-    snv_file = "/cluster/work/boeva/lkasak/data/TCGA-A6-A567/TCGA-A6-A567_pcawg_hg38.vcf.gz"
+    signal_file = "../data/TCGA-A6-A567/TCGA-A6-A567.nodup.no_chrM_MT.tn5.pval.signal.bigwig"
+    genome = "../data/hg38.fa"
+    logs_dir = "../tmp/logs"
+    snv_file = "../data/example_snv.vcf"
 
     # Model parameters
     model_name = "convnext_dcnn"

@@ -7,13 +7,13 @@ import asap
 def main():
 
     # Data paths
-    signal_file = "/cluster/work/boeva/lkasak/data/TCGA-A6-A567/TCGA-A6-A567.nodup.no_chrM_MT.tn5.pval.signal.bigwig"
-    peak_file = "/cluster/work/boeva/lkasak/data/TCGA-A6-A567/TCGA-A6-A567.nodup.no_chrM_MT.tn5.pval0.01.300K.narrowPeak.gz"
-    genome = "/cluster/work/boeva/lkasak/data/hg38.fa"
-    blacklist_file = ["/cluster/work/boeva/lkasak/data/basenji_blacklist.bed", "/cluster/work/boeva/lkasak/data/TCGA-A6-A567/TCGA-A6-A567_pcawg_hg38.vcf.gz"]
-    unmap_file = "/cluster/work/boeva/lkasak/data/basenji_unmappable.bed"
-    generated = "/cluster/work/boeva/lkasak/tmp"
-    logs_dir = "/cluster/work/boeva/lkasak/tmp/logs"
+    signal_file = "../data/TCGA-A6-A567/TCGA-A6-A567.nodup.no_chrM_MT.tn5.pval.signal.bigwig"
+    peak_file = "../data/TCGA-A6-A567/TCGA-A6-A567.nodup.no_chrM_MT.tn5.pval0.01.300K.narrowPeak.gz"
+    genome = "../data/hg38.fa"
+    blacklist_file = ["../data/basenji_blacklist.bed", "../data/example_snv.vcf"]
+    unmap_file = "../data/basenji_unmappable.bed"
+    generated = "../tmp"
+    logs_dir = "../tmp/logs"
 
     # Model parameters
     model_name = "convnext_dcnn"
