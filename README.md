@@ -1,12 +1,12 @@
 # ASAP: Allele-Specific ATAC-seq Prediction
 ### Early feature extraction determines performance: systematic evaluation of deep learning models for high-resolution chromatin accessibility prediction
 
-[![Preprint](https://img.shields.io/badge/preprint-available-green)](https://doi.org/10.1101/2025.03.01.641000) &nbsp;
-[![PyPI](https://img.shields.io/pypi/v/atac-asap?color=blue)](https://pypi.org/project/atac-asap/)
-[![Wiki](https://img.shields.io/badge/Wiki-Documentation-yellow)](https://github.com/BoevaLab/ASAP/wiki)
+[![DOI](https://img.shields.io/badge/DOI-10.1101/gr.281042.125-green)](https://doi.org/10.1101/gr.281042.125)
+[![PyPI](https://img.shields.io/pypi/v/atac-asap?color=pink)](https://pypi.org/project/atac-asap/)
+[![Wiki](https://img.shields.io/badge/Wiki-Documentation-blue)](https://github.com/BoevaLab/ASAP/wiki)
 
 
-ASAP is a python package for fine-grained prediction of chromatin accessibility from DNA sequence, using ConvNeXt V2 blocks as powerful feature extractors. By integrating these blocks into diverse model architectures, including CNNs, LSTMs, dilated CNNs, and transformers, we demonstrate consistent performance gains, with the ConvNeXt-based dilated CNN achieving the most robust and shape-preserving predictions of ATAC-seq signal at 4 bp resolution. 
+ASAP is a Python package for fine-grained prediction of chromatin accessibility from DNA sequence, using ConvNeXt V2 blocks as powerful feature extractors. By integrating these blocks into diverse model architectures, including CNNs, LSTMs, dilated CNNs, and transformers, we demonstrate consistent performance gains, with the ConvNeXt-based dilated CNN achieving the most robust and shape-preserving predictions of ATAC-seq signal at 4 bp resolution. 
 
 ## Features
 
@@ -71,7 +71,7 @@ Args:
 Returns:
    * None
 
-**Note:** The Pearson's R for the trained model on the validation dataset is expected to be ~0.7.
+**Note:** Pearson's R for the trained model on the validation dataset is expected to be ~0.7.
 
 ### 2. Model Evaluation 
 An example script to evaluate a model using asap has been defined in `tutorials/eval.py`.
@@ -147,7 +147,7 @@ Returns:
 asap.eval_robustness(experiment_name, model, eval_dataset, logs_dir, batch_size=64, use_map=False, nr_samples_for_var=17)
 ```
 
-Evaluates the pre-trained model for robustness on peak or whole-genome dataset.
+Evaluates the pre-trained model for robustness on the peak or whole-genome dataset.
 
 Args:
    * `experiment_name` (str): The name of the experiment. This will be used to load model checkpoints.
@@ -207,13 +207,13 @@ Returns:
 ## Citing ASAP
 If you use ASAP in your work, you can cite it using
 ```BibTex
-@article{grover2025evaluation,
-  title={Evaluation of deep learning approaches for high-resolution chromatin accessibility prediction from genomic sequence},
+@article{grover2026early,
+  title={Early feature extraction drives model performance in high-resolution chromatin accessibility prediction},
   author={Grover, Aayush and Muser, Till and Kasak, Liine and Zhang, Lin and Krymova, Ekaterina and Boeva, Valentina},
-  journal={bioRxiv},
-  pages={2025--03},
-  year={2025},
-  publisher={Cold Spring Harbor Laboratory}
+  journal={Genome Research},
+  pages={gr--281042},
+  year={2026},
+  publisher={Cold Spring Harbor Lab}
 }
 ```
 
