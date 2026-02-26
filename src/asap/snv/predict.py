@@ -6,8 +6,8 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
-from asap.dataloader.bw_to_data import _get_x_by_idx, _get_y_by_idx
-from asap.dataloader.utils.seq import seq_to_idx, get_chr_seq
+from asap.dataloader.bw_to_data import get_data_by_idx
+from asap.dataloader.utils.seq import seq_to_idx
 
 def _idx_to_seq(idx: np.ndarray) -> np.ndarray:
     seq = np.array(["A", "G", "C", "T", "N"])[idx]
@@ -30,10 +30,6 @@ def add_predictions(snv: pd.DataFrame, chroms: List[int], bw_file: str, model: n
     for chrom in chroms:
         chr_df = snv[(snv.chr == f'chr{chrom}') & (snv[output_columns].isnull().any(axis=1))]
 
-        pos = chr_df['pos'].sort_values()
-        min_distance = pos.diff().dropna().min()
-        assert min_distance >= window_size, f"Min distance between the SNVs is {min_distance}. It should be >= {window_size}."
-
         n_samples = len(chr_df)
         if n_samples == 0:
             print(f'No SNVs to predict in chr{chrom}')
@@ -41,15 +37,14 @@ def add_predictions(snv: pd.DataFrame, chroms: List[int], bw_file: str, model: n
         
         print(f'Adding predictions for {n_samples} SNVs in chr{chrom}')
 
-        seq = get_chr_seq(genome, chrom)
-
         start_idx = 0
         while start_idx < n_samples:
-            end_idx = min(start_idx + 4, n_samples) # Batch size of 4 works on GPUs with >10GB memory
+            end_idx = min(start_idx + 128, n_samples)
             chr_df_i = chr_df.iloc[[*range(start_idx, end_idx)]]
             starts = chr_df_i.pos.to_numpy() - window_size// 2
-            x = _get_x_by_idx(chrom=chrom, seq=seq, seq_starts=starts, window=window_size, margin=margin_size)
-            y = _get_y_by_idx(signal_files=[bw_file], chrom=chrom, seq_starts=starts, window=window_size, bin_size=bin_size)
+            x, y = get_data_by_idx(signal_files=[bw_file], chrom=chrom, bin_size=bin_size,
+                                window=window_size,
+                                seq_starts=starts, genome=genome, margin=margin_size)
 
             x_var = x.copy()
             mid_loc = (window_size + (2*margin_size)) // 2 - 1
@@ -63,7 +58,6 @@ def add_predictions(snv: pd.DataFrame, chroms: List[int], bw_file: str, model: n
 
             ref_pred = model(torch.from_numpy(x).to(device))
             var_pred = model(torch.from_numpy(x_var).to(device))
-            
             for (i, _), true, ref, var in zip(chr_df_i.iterrows(), y, ref_pred.cpu().detach().numpy(), var_pred.cpu().detach().numpy()):
                 snv.loc[i, 'signal_true'] = json.dumps(true.flatten().tolist())
                 snv.loc[i, 'signal_pred_ref'] = json.dumps(ref.tolist())

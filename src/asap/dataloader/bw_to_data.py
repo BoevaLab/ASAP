@@ -31,10 +31,12 @@ def idx_to_filtered_data(genome: str, signal_files: List[str], seq_starts: np.nd
           f'blacklist={blacklist_bed_files}, unmappable={unmappable_bed_file}, th={unmap_threshold}, '
           f'lower_bound={lower_bound}, files={signal_files}, include_map={True}...')
     id_ = hash_dn(str_, salt='0')
+    y = None
     try:
         print(f'Attempting to load data from file with {str_}')
         x = np.load(f'{generated}/{id_}_x.npy', mmap_mode=mmap_mode)
-        y = np.load(f'{generated}/{id_}_y.npy', mmap_mode=mmap_mode)
+        if signal_files is not None:
+            y = np.load(f'{generated}/{id_}_y.npy', mmap_mode=mmap_mode)
         seq_starts = np.load(f'{generated}/{id_}_seq.npy', mmap_mode=mmap_mode) 
         print('\t...done!')
         
@@ -69,7 +71,8 @@ def idx_to_filtered_data(genome: str, signal_files: List[str], seq_starts: np.nd
         if lower_bound is not None:
             indices_over_bound = y.max(axis=(1, 2), initial=0) >= lower_bound
             x = x[indices_over_bound]
-            y = y[indices_over_bound]
+            if y is not None:
+                y = y[indices_over_bound]
             seq_starts = seq_starts[indices_over_bound]
             if mappability is not None:
                 mappability = mappability[indices_over_bound]
@@ -81,15 +84,16 @@ def idx_to_filtered_data(genome: str, signal_files: List[str], seq_starts: np.nd
         else:
             mappability = mappability.astype('int8')
         x = np.stack([x, mappability], axis=-1)
-        y = y.astype('float32')
+        if y is not None:
+            y = y.astype('float32')
+            np.save(f'{generated}/{id_}_y.npy', y)
+            y = np.load(f'{generated}/{id_}_y.npy', mmap_mode=mmap_mode)
         
         # save and reload in mmap mode
         np.save(f'{generated}/{id_}_x.npy', x)
-        np.save(f'{generated}/{id_}_y.npy', y)
         np.save(f'{generated}/{id_}_seq.npy', seq_starts)
 
         x = np.load(f'{generated}/{id_}_x.npy', mmap_mode=mmap_mode)
-        y = np.load(f'{generated}/{id_}_y.npy', mmap_mode=mmap_mode)
         seq_starts = np.load(f'{generated}/{id_}_seq.npy', mmap_mode=mmap_mode)
         print('\t...done!')
     return x, y, seq_starts
@@ -99,7 +103,9 @@ def get_data_by_idx(genome: str, signal_files: List[str], chrom: int, seq_starts
     np.ndarray, np.ndarray]:
     seq = get_chr_seq(genome, chrom)
     x = _get_x_by_idx(chrom=chrom, seq=seq, seq_starts=seq_starts, window=window, margin=margin)
-    y = _get_y_by_idx(signal_files, chrom, seq_starts, window, bin_size)
+    y = None
+    if signal_files is not None:
+        y = _get_y_by_idx(signal_files, chrom, seq_starts, window, bin_size)
     return x, y
 
 

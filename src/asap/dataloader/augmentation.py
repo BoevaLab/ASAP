@@ -24,4 +24,6 @@ def reverse_complement(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.nda
     if (x<=1).all():
         # No C/T/N in array -- maybe not index-encoded but onehot?
         raise ValueError("No C/T/N in Tensor -- maybe not index-encoded but onehot?")
-    return f(np.flip(x, 0)), np.flip(y, (0,))
+    if y is not None:
+        return f(np.flip(x, 0)), np.flip(y, (0,))
+    return f(np.flip(x,0)), None

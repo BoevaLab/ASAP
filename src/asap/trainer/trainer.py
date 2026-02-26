@@ -115,7 +115,7 @@ class Trainer:
         print(result_metrics)
         return result_metrics
 
-    def predict_and_evaluate(self, gen, metrics_for_track=None) -> Tuple[np.ndarray, np.ndarray, dict]:
+    def predict_and_evaluate(self, gen, metrics_for_track=None, no_eval=False) -> Tuple[np.ndarray, np.ndarray, dict]:
         self.model.eval()
 
         try:
@@ -126,6 +126,9 @@ class Trainer:
         predictions, true = self.predict(gen)
         predictions = predictions.reshape((-1, self.nr_tracks)).detach().cpu().numpy()
         true = true.reshape((-1, self.nr_tracks)).detach().cpu().numpy()
+        
+        if no_eval:
+            return true, predictions, None
 
         metric_results = {}
         if metrics_for_track is None:
@@ -403,7 +406,6 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
         X_i = X_i.to(rank)
         m_i = m_i.to(rank)
         y_i = y_i.to(rank)
-
         optimizer.zero_grad()
         if train_unmap:
             output, output_m_i = model(X_i, return_unmap=True)
@@ -453,9 +455,11 @@ def _predict(model, gen, rank, ddp_enabled):
     predictions = []
     true = []
 
-    for X_i, _, y_i in gen:
+    for i, (X_i, _, y_i) in enumerate(gen):
         X_i = X_i.to(rank)
         y_i = y_i.to(rank)
+        if i == 2040:
+            print(X_i[0,1005:-1005,:])
 
         with torch.no_grad():
             p_i = model(X_i)
@@ -478,4 +482,5 @@ def _predict(model, gen, rank, ddp_enabled):
             predictions.append(p_i)
             true.append(y_i)
 
+    print(i)
     return predictions, true

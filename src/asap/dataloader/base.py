@@ -31,7 +31,10 @@ class BaseDataset(Dataset):
     ):
         super().__init__()
         self.genome = genome
-        self.signal_files = [signal_files]
+        if signal_files is not None:
+            self.signal_files = [signal_files]
+        else:
+            self.signal_files = None
 
         # if we randomly shift to augment the data
         self.random_shift = random_shift
@@ -83,11 +86,14 @@ class BaseDataset(Dataset):
         # chroms have been grouped by amount of bounded data per chromosome to balance folds
         self.chrom_lengths = []
         self.X, self.y, self.seq_starts = [], [], []
+        if self.signal_files is None:
+            self.y = None
         for chrom in self.chroms:
             X_, y_, seq_starts_ = self._generate_chrom_data(chrom)
             self.chrom_lengths.append(len(X_))
             self.X.append(X_)
-            self.y.append(y_)
+            if y_ is not None:
+                self.y.append(y_)
             self.seq_starts.append(seq_starts_)
         self.cum_chrom_lengths = np.cumsum(self.chrom_lengths)
 
@@ -120,6 +126,7 @@ class BaseDataset(Dataset):
             idx = index - self.cum_chrom_lengths[chrom_idx - 1]
         else:
             idx = index
+        y = None
         if self.random_shift:
             shift = random.randint(
                 0, self.window_size // self.bin_size
@@ -128,17 +135,19 @@ class BaseDataset(Dataset):
             X = self.X[chrom_idx][
                 idx, x_shift : x_shift + (self.window_size + 2 * self.margin_size)
             ]
-            y = self.y[chrom_idx][
-                idx, shift : shift + (self.window_size // self.bin_size)
+            if self.y is not None:
+                y = self.y[chrom_idx][
+                    idx, shift : shift + (self.window_size // self.bin_size)
             ]
         else:
             X = self.X[chrom_idx][idx]
-            y = self.y[chrom_idx][idx]
+            if self.y is not None:
+                y = self.y[chrom_idx][idx]
 
-        if self.logspace:
+        if self.logspace and y is not None:
             y = np.log(y + 1)
 
-        m = X[..., [1]].astype(y.dtype)
+        m = X[..., [1]].astype(np.float32)
         X = X[..., 0]
 
         for aug in self.augmentations:
@@ -152,7 +161,10 @@ class BaseDataset(Dataset):
         # torch doesn't like non-writeable tensors
         X = torch.from_numpy(np.copy(X))
         m = torch.from_numpy(np.copy(m))
-        y = torch.from_numpy(np.copy(y))
+        if y is not None:
+            y = torch.from_numpy(np.copy(y))
+        else:
+            y = torch.tensor(0)
         return X, m, y
 
 
