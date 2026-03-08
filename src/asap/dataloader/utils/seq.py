@@ -1,11 +1,15 @@
+import os
+
 import numpy as np
 from pyfaidx import Fasta
 from typing import Tuple
 
 
 def get_chr_seq(genome: str, chrom: int) -> np.ndarray:
-    print(f'Loading genome file: {genome}')
-    genome_seq = Fasta(genome)
+    genome_filename, extensions = genome.split(".", 1)
+    processed_fasta = f"{genome_filename}-updated.{extensions}"
+    print(f'Loading genome file: {processed_fasta}')
+    genome_seq = Fasta(processed_fasta)
     chr_seq = genome_seq[f'chr{chrom}'][:].seq
     return seq_to_idx(chr_seq)
 
@@ -44,7 +48,24 @@ def get_chr_range(chr_seq: str) -> Tuple[int, int]:
 
 
 def get_range_by_chrom_number(genome, chrom: int, divisible_by: int = None) -> Tuple[int, int]:
-    genome_seq = Fasta(genome)
+    genome_filename, extensions = genome.split(".", 1)
+    processed_fasta = f"{genome_filename}-updated.{extensions}"
+
+    # if the file annotates chromosoms as >"number", change to >chr"number"
+    if not os.path.exists(processed_fasta):
+        with open(genome, "r") as infile, open(processed_fasta, "x") as outfile:
+            for line in infile:
+                header = line.strip()
+                if line.startswith(">"):
+                    # Add 'chr' only if it doesn't already start with 'chr'
+                    if not header[1:].startswith("chr"):
+                        header = f">chr{header[1:]}"
+                    outfile.write(header + "\n")
+                else:
+                    # Sequence lines stay the same
+                    outfile.write(line)
+
+    genome_seq = Fasta(processed_fasta)
     chr_seq = genome_seq[f'chr{chrom}'][0:-1].seq.upper()
     start, end = get_chr_range(chr_seq)
     if divisible_by is not None:
