@@ -35,7 +35,7 @@ def filter_idx_by_bed(chrom: int, seq_starts: np.ndarray, window_size: int, blac
         bed = load_vcf_file(blacklist_bed_file)
     else:
         bed = pd.read_csv(blacklist_bed_file, delimiter='\t', header=None, names=['chr', 'start', 'end'])
-    bed = bed[(bed.chr == f'chr{chrom}') | (bed.chr == f'{chrom}')] # #TODO this is now also filtering .vnf files. Should this be the case?
+    bed = bed[(bed.chr == f'chr{chrom}') | (bed.chr.astype(str) == f'{chrom}')] # #TODO this is now also filtering .vnf files. Should this be the case?
     for gap_start, gap_end in zip(bed.start, bed.end):
         seq_starts = seq_starts[(gap_start > seq_starts + window_size) | (gap_end < seq_starts)]
     print(f'Filtered out {nr_samples - len(seq_starts)} samples. New size: {len(seq_starts)}')
@@ -62,7 +62,7 @@ def filter_idx_by_unmap_threshold(chrom: int, seq_starts: np.ndarray, window_siz
         print('Generating mappability file')
     nr_samples = len(seq_starts)
     unmap = pd.read_csv(unmappable_bed_file, delimiter='\t', header=None, names=['chr', 'start', 'end'])
-    unmap = unmap[unmap.chr == f'chr{chrom}']
+    unmap = unmap[(unmap.chr == f'chr{chrom}') | (unmap.chr.astype(str) == f'{chrom}')]
 
     filtered = np.ones_like(seq_starts)
     if return_unmap:
