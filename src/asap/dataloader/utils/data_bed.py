@@ -22,7 +22,10 @@ def load_vcf_file(vcf_path: str) -> pd.DataFrame:
         df['start'] = df['POS'] - 1
         df['end'] = df['POS'] + df['REF'].str.len() - 2
         
-        df['chr'] = df['CHROM'].str.replace('chr', '', regex=False)
+        # this line stripped chr from before. Later chr is used for filtering, so no filtering was done
+        # df['chr'] = df['CHROM'].str.replace('chr', '', regex=False)
+        # replaced .str by astype(str) so that int columns can be parsed -> TODO remove when merged
+        df['chr'] = df['CHROM'].astype(str).replace('chr', '', regex=False) 
         return df[['chr', 'start', 'end']]
 
 def filter_idx_by_bed(chrom: int, seq_starts: np.ndarray, window_size: int, blacklist_bed_file: str) -> np.ndarray:
@@ -32,7 +35,7 @@ def filter_idx_by_bed(chrom: int, seq_starts: np.ndarray, window_size: int, blac
         bed = load_vcf_file(blacklist_bed_file)
     else:
         bed = pd.read_csv(blacklist_bed_file, delimiter='\t', header=None, names=['chr', 'start', 'end'])
-    bed = bed[bed.chr == f'chr{chrom}']
+    bed = bed[(bed.chr == f'chr{chrom}') | (bed.chr == f'{chrom}')] # #TODO this is now also filtering .vnf files. Should this be the case?
     for gap_start, gap_end in zip(bed.start, bed.end):
         seq_starts = seq_starts[(gap_start > seq_starts + window_size) | (gap_end < seq_starts)]
     print(f'Filtered out {nr_samples - len(seq_starts)} samples. New size: {len(seq_starts)}')
