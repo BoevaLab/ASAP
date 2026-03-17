@@ -73,8 +73,8 @@ def filter_idx_by_unmap_threshold(chrom: int, seq_starts: np.ndarray, window_siz
         overlaps = unmap[(start < unmap.start) & (unmap.start < end)
                          | (start < unmap.end) & (unmap.end < end)
                          | (unmap.start < start) & (end < unmap.end)]
-        starts = overlaps.start.to_numpy()
-        ends = overlaps.end.to_numpy()
+        starts = overlaps.start.to_numpy().copy()
+        ends = overlaps.end.to_numpy().copy()
         starts[starts < start] = start
         ends[ends > start + window_size] = start + window_size
         overlap_length = sum(overlaps.end - overlaps.start)
