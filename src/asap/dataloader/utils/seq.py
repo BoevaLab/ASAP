@@ -13,10 +13,15 @@ def get_chr_seq(genome: str, chrom: int) -> np.ndarray:
         chr_seq = genome_seq[f'{chrom}'][:].seq
     return seq_to_idx(chr_seq)
 
-def seq_to_idx(seq: str) -> np.array:
-    seq_array = np.array(list(seq.upper()))
-    mapping = {'A': 0, 'G': 1, 'C': 2, 'T': 3, 'N': 4}
-    indices = np.vectorize(mapping.get)(seq_array).astype(np.int8)
+def seq_to_idx(seq: str) -> np.ndarray:
+    seq_bytes = np.frombuffer(seq.upper().encode("ascii"), dtype=np.uint8)
+    LOOKUP = np.full(256, 4, dtype=np.int8)  # default = N
+    LOOKUP[ord('A')] = 0
+    LOOKUP[ord('G')] = 1
+    LOOKUP[ord('C')] = 2
+    LOOKUP[ord('T')] = 3
+    LOOKUP[ord('N')] = 4
+    indices = LOOKUP[seq_bytes]
     return indices
 
 def seq_to_onehot(seq: str) -> np.array:
