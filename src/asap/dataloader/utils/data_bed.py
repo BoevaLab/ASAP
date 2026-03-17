@@ -22,9 +22,6 @@ def load_vcf_file(vcf_path: str) -> pd.DataFrame:
         df['start'] = df['POS'] - 1
         df['end'] = df['POS'] + df['REF'].str.len() - 2
         
-        # this line stripped chr from before. Later chr is used for filtering, so no filtering was done
-        # df['chr'] = df['CHROM'].str.replace('chr', '', regex=False)
-        # replaced .str by astype(str) so that int columns can be parsed -> TODO remove when merged
         df['chr'] = df['CHROM'].astype(str).replace('chr', '', regex=False) 
         return df[['chr', 'start', 'end']]
 
