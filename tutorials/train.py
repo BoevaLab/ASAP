@@ -1,8 +1,3 @@
-import sys
-import os
-
-sys.path.append(os.path.abspath("src"))
-
 import asap
 
 # The below code is a complete script that sets up the training of a model using the ASAP library. 
@@ -12,12 +7,12 @@ import asap
 def main():
 
     # Data paths
-    signal_file = "data/ENCFF667MDI.bigWig" # Path to the ATAC-seq signal file (bigwig)
-    genome = "data/hg38.fa" # Path to the genome file
-    blacklist_file = ["data/basenji_blacklist.bed", "data/example_snv.vcf"]
-    unmap_file = "data/basenji_unmappable.bed" # (str): Path to the unmapped regions file.
-    generated = "tmp" # (str): Path to save the processed data.
-    logs_dir = "tmp/logs"
+    signal_file = "../data/TCGA-A6-A567/TCGA-A6-A567.nodup.no_chrM_MT.tn5.pval.signal.bigwig"
+    genome = "../data/hg38.fa"
+    blacklist_file = ["../data/basenji_blacklist.bed", "../data/example_snv.vcf"]
+    unmap_file = "../data/basenji_unmappable.bed"
+    generated = "../tmp"
+    logs_dir = "../tmp/logs"
 
     # Model parameters
     model_name = "convnext_dcnn"
