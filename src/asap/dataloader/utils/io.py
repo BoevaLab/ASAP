@@ -27,7 +27,7 @@ def get_bw_from_file(signal_file: str, file_mode='r'):
 def get_peak_locations(bed_file: str, chrom: int) -> np.ndarray:
     df = pd.read_csv(bed_file, delimiter='\t', header=None,
                      names=['chrom', 'chrom_start', 'chrom_end', 'offset'], usecols=[0, 1, 2, 9])
-    df = df[df['chrom'] == f'chr{chrom}']
+    df = df[(df['chrom'] == f'chr{chrom}') | (df['chrom'].astype(str) == f'{chrom}')] # TODO test
     return df['offset'].to_numpy() + df['chrom_start'].to_numpy()
 
 

@@ -1,18 +1,27 @@
+import os
+
 import numpy as np
 from pyfaidx import Fasta
 from typing import Tuple
 
 
 def get_chr_seq(genome: str, chrom: int) -> np.ndarray:
-    print(f'Loading genome file: {genome}')
     genome_seq = Fasta(genome)
-    chr_seq = genome_seq[f'chr{chrom}'][:].seq
+    if f'chr{chrom}' in genome_seq.keys():
+        chr_seq = genome_seq[f'chr{chrom}'][:].seq
+    else:
+        chr_seq = genome_seq[f'{chrom}'][:].seq
     return seq_to_idx(chr_seq)
 
-def seq_to_idx(seq: str) -> np.array:
-    seq_array = np.array(list(seq.upper()))
-    mapping = {'A': 0, 'G': 1, 'C': 2, 'T': 3, 'N': 4}
-    indices = np.vectorize(mapping.get)(seq_array).astype(np.int8)
+def seq_to_idx(seq: str) -> np.ndarray:
+    seq_bytes = np.frombuffer(seq.upper().encode("ascii"), dtype=np.uint8)
+    LOOKUP = np.full(256, 4, dtype=np.int8)  # default = N
+    LOOKUP[ord('A')] = 0
+    LOOKUP[ord('G')] = 1
+    LOOKUP[ord('C')] = 2
+    LOOKUP[ord('T')] = 3
+    LOOKUP[ord('N')] = 4
+    indices = LOOKUP[seq_bytes]
     return indices
 
 def seq_to_onehot(seq: str) -> np.array:
@@ -45,7 +54,10 @@ def get_chr_range(chr_seq: str) -> Tuple[int, int]:
 
 def get_range_by_chrom_number(genome, chrom: int, divisible_by: int = None) -> Tuple[int, int]:
     genome_seq = Fasta(genome)
-    chr_seq = genome_seq[f'chr{chrom}'][0:-1].seq.upper()
+    if f'chr{chrom}' in genome_seq.keys():
+        chr_seq = genome_seq[f'chr{chrom}'][0:-1].seq.upper()
+    else:
+        chr_seq = genome_seq[f'{chrom}'][0:-1].seq.upper()
     start, end = get_chr_range(chr_seq)
     if divisible_by is not None:
         end -= (end - start) % divisible_by
