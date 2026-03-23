@@ -45,5 +45,16 @@ def main():
         n_gpus=n_gpus,
     )
 
+    asap.train_new_head(
+        base_experiment_name=experiment_name,
+        new_experiment_name=f"{experiment_name}-new",
+        model=model_name,
+        train_dataset=train,
+        val_dataset=val,
+        logs_dir=logs_dir,
+        n_gpus=n_gpus,
+        max_epochs=15,
+    )
+
 if __name__ == "__main__":
     main()
