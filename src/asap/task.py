@@ -75,6 +75,69 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
 
+def train_new_head(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False):
+    '''
+    Evaluate the model on the given dataset.
+    Args:
+        base_experiment_name (str): The name of the model whose weights will be loaded.
+        new_experiment_name (str): The name of the experiment for the new head.
+        model (str): The model to evaluate.
+        eval_dataset: The evaluation dataset.
+        logs_dir (str): The directory to load model checkpoints from.
+        batch_size (int): The batch size for evaluation.
+        use_map (bool): If mappability information was used during training.
+    '''
+    if n_gpus > 0 and not torch.cuda.is_available():
+        n_gpus = 0
+        print("No GPU available, using CPU instead.")
+    
+    # Count the number of GPUs available
+    if n_gpus > torch.cuda.device_count():
+        n_gpus = torch.cuda.device_count()
+        print(f"Requested {n_gpus} GPUs, but only {torch.cuda.device_count()} are available. Using {n_gpus} GPUs instead.")
+
+    # Initialize the model
+    model = _get_model(model, use_map=use_map)
+
+    # Initialize the trainer with the model and datasets
+    trainer = Trainer(
+        filename=new_experiment_name, 
+        model=model,
+        criterion=nn.PoissonNLLLoss(log_input=False),
+        unmap_criterion=use_map,
+        batch_size=batch_size,
+        logger=TextLogger(logs_dir=logs_dir), 
+        n_gpus=n_gpus,
+        linear_probe=True,
+    )
+
+    # train the new head based on the previous model
+    print(f'Loading best model weights from {base_experiment_name}')
+    checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / base_experiment_name / 'checkpoint.pth'
+    trainer.load_weights(checkpoint_path)
+
+     # replace head
+    in_features = trainer.model.core.linear_out.in_features
+    out_features = trainer.model.core.linear_out.out_features 
+    trainer.model.core.linear_out = nn.Linear(in_features, out_features)
+
+    # freeze everything
+    for param in trainer.model.parameters():
+        param.requires_grad = False
+
+    # unfreeze head
+    for param in trainer.model.core.linear_out.parameters():
+        param.requires_grad = True
+
+    # set modes such that there is no dropout for the core
+    trainer.model.eval()
+    trainer.model.core.linear_out.train()
+
+
+    # Start training
+    trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
+    print("trained a new model")
+
 def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False):
     '''
     Evaluate the model on the given dataset.
@@ -120,6 +183,7 @@ def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs
         _, _, result_metrics = trainer.predict_and_evaluate(test_gen)
         scores[chrom] = {key: result_metrics[key] for key in ['pearson_r', 'mse', 'poisson_nll', 'spearman_r', 'kendall_tau']}
     return scores
+
 
 def eval_robustness(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False, nr_samples_for_var: int=17):
     '''

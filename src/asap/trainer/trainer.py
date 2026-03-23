@@ -28,6 +28,7 @@ class Trainer:
                  batch_size: int = None,
                  logger: Logger = None,
                  n_gpus: int = None,
+                 linear_probe=False,
                  ):
         self.filename = filename
         self.model = model
@@ -40,6 +41,7 @@ class Trainer:
         self.nr_tracks = 1
         self.nr_devices = n_gpus
         self.batch_size = batch_size
+        self.linear_probe = linear_probe
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
@@ -71,6 +73,7 @@ class Trainer:
                     self.logger,
                     self.filename,
                     self.nr_devices,
+                    self.linear_probe,
                     port
                 ),
                 nprocs=self.nr_devices
@@ -100,7 +103,8 @@ class Trainer:
                 self.unmap_criterion,
                 self.logger,
                 self.filename,
-                ddp_enabled=False
+                ddp_enabled=False,
+                linear_probe=self.linear_probe,
             )
 
     def predict(self, gen):
@@ -276,7 +280,8 @@ def _ddp_and_fit(
         logger,
         filename,
         world_size,
-        port=12355
+        linear_probe,
+        port=12355,
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
@@ -303,7 +308,8 @@ def _ddp_and_fit(
         unmap_criterion=unmap_criterion,
         logger=logger,
         filename=filename,
-        ddp_enabled=True
+        ddp_enabled=True,
+        linear_probe=linear_probe,
     )
     dist.destroy_process_group()
 
@@ -319,9 +325,14 @@ def _fit(
         unmap_criterion,
         logger: Logger,
         filename: str,
-        ddp_enabled: bool
+        ddp_enabled: bool,
+        linear_probe=False,
     ):
-    optimizer = configure_adamw(model, lr=learning_rate)
+
+    if linear_probe:
+        optimizer = configure_adamw(model.core.linear_out, lr=learning_rate)
+    else:
+        optimizer = configure_adamw(model, lr=learning_rate)
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
         optimizer=optimizer,
         warmup_steps=int(len(train_gen) * 0.25),
