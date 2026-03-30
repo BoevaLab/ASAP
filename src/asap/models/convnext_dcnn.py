@@ -42,7 +42,7 @@ class ConvNeXtDCNN(nn.Module):
         if self.use_map:
             self.unmap_predictor = UnmapPredictor(channels_in=config['filters0'])
 
-        self.core = BasenjiCoreBlock(nr_tracks=config['num_heads'], window=window, filters_in=config['filters0'],
+        self.core = BasenjiCoreBlock(nr_tracks=1, window=window, filters_in=config['filters0'],
                       nr_res_blocks=config['residual_blocks'],
                       rate_mult=config['dilation_mult'],
                       bin_size=config['bin_size'],
@@ -51,7 +51,8 @@ class ConvNeXtDCNN(nn.Module):
                       kernel1=config['kernel1'],
                       kernel2=config['kernel2'],
                       dropout=config['dropout'],
-                      final_dropout=config['final_dropout'])
+                      final_dropout=config['final_dropout'],
+                      num_heads=config['num_heads'])
     
     def forward(self, x:torch.Tensor, return_unmap=False) -> torch.Tensor:
         x = torch.transpose(x, dim0=-1, dim1=-2)
@@ -71,7 +72,7 @@ class BasenjiCoreBlock(nn.Module):
     def __init__(self, nr_tracks: int, window: int, filters_in,
                   nr_res_blocks: int = 11, rate_mult: float = 1.5, bin_size: int = 100, filters1: int = 128,
                   filters3: int = None, kernel1: int = 3, kernel2: int = 1, dropout: float = 0.3,
-                  final_dropout: float = 0.05):
+                  final_dropout: float = 0.05, num_heads=1):
         super().__init__()
         if not filters3:
             filters3 = window
@@ -94,11 +95,11 @@ class BasenjiCoreBlock(nn.Module):
         pool_size = bin_size // 2
         self.pool = nn.AvgPool1d(kernel_size=pool_size, stride=pool_size)
 
-        print("creating output layer with tracks:", nr_tracks)
-        self.linear_out = nn.Linear(
-            in_features=filters3,
-            out_features=nr_tracks,
-        )
+        print("creating output layer with tracks:", num_heads)
+        self.heads = nn.ModuleList([
+            nn.Linear(filters3, nr_tracks)
+            for _ in range(num_heads)
+        ])
         self.activation = nn.Softplus()
     
     def forward(self, x:torch.Tensor) -> torch.Tensor:
@@ -117,9 +118,12 @@ class BasenjiCoreBlock(nn.Module):
         x = self.final_dropout(x)
         x = self.pool(x)
         x = torch.transpose(x, -2, -1)
-        x = self.linear_out(x)
-        x = self.activation(x)
-        return x
+        outputs = []
+        for head in self.heads:
+            out = head(x)
+            out = self.activation(out)
+            outputs.append(out)
+        return outputs
 
 
 class ConvBlock(nn.Module):

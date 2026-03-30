@@ -115,6 +115,7 @@ def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: L
         batch_size=batch_size,
         logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
+        num_heads=num_heads
     )
 
     # Start training
@@ -144,6 +145,7 @@ def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDat
         batch_size=batch_size,
         logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
+        num_heads=num_heads
     )
 
     # for evaluation use the checkpoint of the best model

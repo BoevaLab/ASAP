@@ -29,6 +29,7 @@ class Trainer:
                  logger: Logger = None,
                  n_gpus: int = None,
                  nr_tracks: int = 1,
+                 num_heads: int = 1,
                  ):
         self.filename = filename
         self.model = model
@@ -41,6 +42,7 @@ class Trainer:
         self.nr_tracks = nr_tracks
         self.nr_devices = n_gpus
         self.batch_size = batch_size
+        self.num_heads = num_heads
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
@@ -72,7 +74,8 @@ class Trainer:
                     self.logger,
                     self.filename,
                     self.nr_devices,
-                    port
+                    port,
+                    self.num_heads
                 ),
                 nprocs=self.nr_devices
             )
@@ -101,7 +104,8 @@ class Trainer:
                 self.unmap_criterion,
                 self.logger,
                 self.filename,
-                ddp_enabled=False
+                ddp_enabled=False,
+                num_heads=self.num_heads
             )
 
     def predict(self, gen):
@@ -125,7 +129,6 @@ class Trainer:
             print("Generator has no margin size -- assuming full prediction.")
 
         predictions, true = self.predict(gen)
-        num_heads = predictions.shape[-1]
         predictions = predictions[..., target_head: target_head+1]
         predictions = predictions.reshape((-1, 1)).detach().cpu().numpy()
         true = true.reshape((-1, 1)).detach().cpu().numpy()
@@ -314,7 +317,8 @@ def _ddp_and_fit(
         logger,
         filename,
         world_size,
-        port=12355
+        port=12355,
+        num_heads=1,
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
@@ -341,7 +345,8 @@ def _ddp_and_fit(
         unmap_criterion=unmap_criterion,
         logger=logger,
         filename=filename,
-        ddp_enabled=True
+        ddp_enabled=True,
+        num_heads=num_heads,
     )
     dist.destroy_process_group()
 
@@ -357,7 +362,8 @@ def _fit(
         unmap_criterion,
         logger: Logger,
         filename: str,
-        ddp_enabled: bool
+        ddp_enabled: bool,
+        num_heads: int,
     ):
     optimizer = configure_adamw(model, lr=learning_rate)
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
@@ -380,7 +386,8 @@ def _fit(
             optimizer,
             scheduler,
             criterion,
-            unmap_criterion)
+            unmap_criterion,
+            num_heads)
 
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
             logger.log(train_log_payload, step=epoch)
@@ -394,10 +401,10 @@ def _fit(
             logger.log({'lr': scheduler.get_last_lr()[0]})
             predictions, true = val_res
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
-            num_tracks = predictions.shape[-1]
-            for track in range(num_tracks):
-                print("Head: ", track+1)
-                predictions_head, true_head = predictions[..., track].flatten().numpy(), true[..., track].flatten().numpy()
+            for head in range(num_heads):
+                print("Head: ", head)
+                print("Debug", predictions.shape, true.shape)
+                predictions_head, true_head = predictions[..., head].flatten().numpy(), true[..., head].flatten().numpy()
                 val_log_payload = compute_metrics(
                     predictions_head,
                     true_head,
@@ -434,7 +441,7 @@ def _fit(
     print('Completed training!')
 
 
-def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion):
+def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, num_heads=1):
     model.train()
 
     train_unmap = unmap_criterion is not None
@@ -448,7 +455,6 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
         m_i = m_i.to(rank)
         y_i = y_i.to(rank)
         optimizer.zero_grad()
-        nr_tracks = y_i.shape[-1]
         if train_unmap:
             output, output_m_i = model(X_i, return_unmap=True)
             # trim m_i in case of unpadded conv in stem
@@ -456,14 +462,14 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
             unmap_loss = unmap_criterion(output_m_i, m_i[:, :m_len])
 
             base_loss = 0
-            for track in range(nr_tracks):
-                base_loss += criterion(output[..., track], y_i[..., track])
+            for head in range(num_heads):
+                base_loss += criterion(output[head], y_i[..., head:head+1])
             loss = base_loss + unmap_loss
         else:
             output = model(X_i)
             loss = 0
-            for track in range(nr_tracks):
-                loss += criterion(output[..., track], y_i[..., track])
+            for head in range(num_heads):
+                loss += criterion(output[head], y_i[..., head:head+1])
 
         loss.backward()
         optimizer.step()
@@ -509,6 +515,7 @@ def _predict(model, gen, rank, ddp_enabled):
 
         with torch.no_grad():
             p_i = model(X_i)
+            p_i = torch.cat(p_i, dim=-1)
 
         if margin_size is not None:
             y_i.flatten()
