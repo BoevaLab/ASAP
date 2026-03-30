@@ -28,6 +28,7 @@ class Trainer:
                  batch_size: int = None,
                  logger: Logger = None,
                  n_gpus: int = None,
+                 nr_tracks: int = 1,
                  ):
         self.filename = filename
         self.model = model
@@ -37,7 +38,7 @@ class Trainer:
 
         self.logger: Logger = logger
         self.logspace = True 
-        self.nr_tracks = 1
+        self.nr_tracks = nr_tracks
         self.nr_devices = n_gpus
         self.batch_size = batch_size
         if self.nr_devices > 1: 
@@ -114,6 +115,43 @@ class Trainer:
         result_metrics = self.predict_and_evaluate(test_gen)
         print(result_metrics)
         return result_metrics
+
+    def predict_and_evaluate_multihead(self, gen, metrics_for_track=None, no_eval=False, target_head=0) -> Tuple[np.ndarray, np.ndarray, dict]:
+        self.model.eval()
+
+        try:
+            gen.dataset.margin_size
+        except AttributeError:
+            print("Generator has no margin size -- assuming full prediction.")
+
+        predictions, true = self.predict(gen)
+        num_heads = predictions.shape[-1]
+        predictions = predictions[..., target_head: target_head+1]
+        predictions = predictions.reshape((-1, 1)).detach().cpu().numpy()
+        true = true.reshape((-1, 1)).detach().cpu().numpy()
+        
+        if no_eval:
+            return true, predictions, None
+
+        metric_results = {}
+        if metrics_for_track is None:
+            # compute metrics for all tracks
+            metrics_for_track = range(self.nr_tracks)
+            metrics_ = compute_metrics(
+                    predictions.flatten(),
+                    true.flatten(),
+                    logspace_input=self.logspace
+                )
+            metric_results.update(metrics_)
+        else:
+            for track in metrics_for_track:
+                metrics_ = compute_metrics(
+                    predictions[:, track],
+                    true[:, track],
+                    logspace_input=self.logspace
+                )
+                metric_results.update(prepend_to_keys(metrics_, f"_{track}_"))
+        return true, predictions, metric_results
 
     def predict_and_evaluate(self, gen, metrics_for_track=None, no_eval=False) -> Tuple[np.ndarray, np.ndarray, dict]:
         self.model.eval()
@@ -356,28 +394,31 @@ def _fit(
             logger.log({'lr': scheduler.get_last_lr()[0]})
             predictions, true = val_res
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
-            predictions, true = predictions[..., 0].flatten().numpy(), true[..., 0].flatten().numpy()
-            val_log_payload = compute_metrics(
-                predictions,
-                true,
-                logspace_input=val_gen.dataset.logspace
-            )
-            val_log_payload = prepend_to_keys(val_log_payload, 'val/')
-            logger.log(val_log_payload, step=epoch)
-            print(f'Epoch {epoch} - {datetime.now()}')
-            if train_log_payload is not None:
-                print(f'\tTrain loss: {train_log_payload["train/loss"]}')
-            print(f'\tVal pearson r: {val_log_payload["val/pearson_r"]}')
-            print('-----------------------------------------')
-            if val_log_payload['val/pearson_r'] > best_val_score:
-                best_val_score = val_log_payload['val/pearson_r']
-                logger.save_model(model, filename)
-                 # handle early stopping
-                no_improvement_for = 0
-            else:
-                no_improvement_for += 1
-                if (epoch != nr_epochs -1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
-                    stop_early += 1
+            num_tracks = predictions.shape[-1]
+            for track in range(num_tracks):
+                print("Head: ", track+1)
+                predictions_head, true_head = predictions[..., track].flatten().numpy(), true[..., track].flatten().numpy()
+                val_log_payload = compute_metrics(
+                    predictions_head,
+                    true_head,
+                    logspace_input=val_gen.dataset.logspace
+                )
+                val_log_payload = prepend_to_keys(val_log_payload, 'val/')
+                logger.log(val_log_payload, step=epoch)
+                print(f'Epoch {epoch} - {datetime.now()}')
+                if train_log_payload is not None:
+                    print(f'\tTrain loss: {train_log_payload["train/loss"]}')
+                print(f'\tVal pearson r: {val_log_payload["val/pearson_r"]}')
+                print('-----------------------------------------')
+                if val_log_payload['val/pearson_r'] > best_val_score:
+                    best_val_score = val_log_payload['val/pearson_r']
+                    logger.save_model(model, filename)
+                    # handle early stopping
+                    no_improvement_for = 0
+                else:
+                    no_improvement_for += 1
+                    if (epoch != nr_epochs -1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
+                        stop_early += 1
 
         if ddp_enabled:
             dist.all_reduce(stop_early)
@@ -407,17 +448,22 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
         m_i = m_i.to(rank)
         y_i = y_i.to(rank)
         optimizer.zero_grad()
+        nr_tracks = y_i.shape[-1]
         if train_unmap:
             output, output_m_i = model(X_i, return_unmap=True)
             # trim m_i in case of unpadded conv in stem
             m_len = output_m_i.shape[1]
             unmap_loss = unmap_criterion(output_m_i, m_i[:, :m_len])
 
-            base_loss = criterion(output, y_i)
+            base_loss = 0
+            for track in range(nr_tracks):
+                base_loss += criterion(output[..., track], y_i[..., track])
             loss = base_loss + unmap_loss
         else:
             output = model(X_i)
-            loss = criterion(output, y_i)
+            loss = 0
+            for track in range(nr_tracks):
+                loss += criterion(output[..., track], y_i[..., track])
 
         loss.backward()
         optimizer.step()

@@ -13,7 +13,7 @@ from .utils.logger import TextLogger
 from .models import VanillaCNN, CNN_LSTM, DilatedCNN, ConvNextTransformer, ConvNeXtCNN, ConvNeXtLSTM, ConvNeXtDCNN
 from .snv import make_pcawg_df, add_predictions
 
-def _get_model(model_name: str, use_map: bool = False):
+def _get_model(model_name: str, use_map: bool = False, num_heads=1):
     if model_name == 'cnn':
         return VanillaCNN(use_map=use_map)
     elif model_name == 'lstm':
@@ -27,7 +27,7 @@ def _get_model(model_name: str, use_map: bool = False):
     elif model_name == 'convnext_lstm':
         return ConvNeXtLSTM(use_map=use_map)
     elif model_name == 'convnext_dcnn':
-        return ConvNeXtDCNN(use_map=use_map)
+        return ConvNeXtDCNN(use_map=use_map, num_heads=num_heads)
     else:
         raise ValueError(f'Unknown model name: {model_name}')
 
@@ -75,7 +75,52 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
 
-def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False):
+def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: List[BaseDataset], val_dataset: List[BaseDataset], logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
+    """
+    Train the model with the given datasets and parameters.
+    
+    Args:
+        experiment_name (str): The name of the experiment.
+        model (str): The model to train.
+        train_dataset: The training dataset.
+        val_dataset: The validation dataset.
+        logs_dir (str): The directory to save logs.
+        n_gpus (int): The number of GPUs to use for training.
+        max_epochs (int): The maximum number of epochs to train.
+        learning_rate (float): The learning rate for the optimizer.
+        batch_size (int): The batch size for training.
+        use_map (bool): Whether to use mappability for training.
+        num_heads (int): The number of heads (=num of prediction signals)
+    """
+
+    # Check if gpu is available
+    if n_gpus > 0 and not torch.cuda.is_available():
+        n_gpus = 0
+        print("No GPU available, using CPU instead.")
+    
+    # Count the number of GPUs available
+    if n_gpus > torch.cuda.device_count():
+        n_gpus = torch.cuda.device_count()
+        print(f"Requested {n_gpus} GPUs, but only {torch.cuda.device_count()} are available. Using {n_gpus} GPUs instead.")
+
+    # Initialize the model
+    model = _get_model(model, use_map=use_map, num_heads=num_heads)
+
+    # Initialize the trainer with the model and datasets
+    trainer = Trainer(
+        filename=experiment_name, 
+        model=model,
+        criterion=nn.PoissonNLLLoss(log_input=False),
+        unmap_criterion=use_map,
+        batch_size=batch_size,
+        logger=TextLogger(logs_dir=logs_dir), 
+        n_gpus=n_gpus,
+    )
+
+    # Start training
+    trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
+
+def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False,  num_heads: int=1, target_head:int = 0):
     '''
     Evaluate the model on the given dataset.
     Args:
@@ -89,7 +134,54 @@ def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs
     n_gpus = 1 if torch.cuda.is_available() else 0
 
     # Initialize the model
-    model = _get_model(model, use_map=use_map)
+    model = _get_model(model, use_map=use_map, num_heads=num_heads)
+
+    trainer = Trainer(
+        filename=experiment_name, 
+        model=model,
+        criterion=nn.PoissonNLLLoss(log_input=False),
+        unmap_criterion=use_map,
+        batch_size=batch_size,
+        logger=TextLogger(logs_dir=logs_dir), 
+        n_gpus=n_gpus,
+    )
+
+    # for evaluation use the checkpoint of the best model
+    print(f'Loading best model weights from {trainer.filename}')
+    checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / trainer.filename / 'checkpoint.pth'
+    trainer.load_weights(checkpoint_path)
+    
+    test_chroms = eval_dataset.chroms
+    scores = {}
+    for chrom in test_chroms:
+        eval_dataset.set_chroms([chrom])
+        test_gen = make_dataloader(
+            ddp_enabled=False,
+            dataset=eval_dataset,
+            batch_size=batch_size, 
+            is_train=False
+        )
+
+        _, _, result_metrics = trainer.predict_and_evaluate_multihead(test_gen, target_head=target_head)
+        scores[chrom] = {key: result_metrics[key] for key in ['pearson_r', 'mse', 'poisson_nll', 'spearman_r', 'kendall_tau']}
+    return scores
+
+
+def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False,  num_heads: int=1):
+    '''
+    Evaluate the model on the given dataset.
+    Args:
+        experiment_name (str): The name of the experiment.
+        model (str): The model to evaluate.
+        eval_dataset: The evaluation dataset.
+        logs_dir (str): The directory to load model checkpoints from.
+        batch_size (int): The batch size for evaluation.
+        use_map (bool): If mappability information was used during training.
+    '''
+    n_gpus = 1 if torch.cuda.is_available() else 0
+
+    # Initialize the model
+    model = _get_model(model, use_map=use_map, num_heads=num_heads)
 
     trainer = Trainer(
         filename=experiment_name, 

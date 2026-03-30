@@ -31,10 +31,12 @@ class BaseDataset(Dataset):
     ):
         super().__init__()
         self.genome = genome
-        if signal_files is not None:
-            self.signal_files = [signal_files]
-        else:
+        if signal_files is None:
             self.signal_files = None
+        elif type(signal_files) is list:
+            self.signal_files = signal_files
+        else:
+            self.signal_files = [signal_files]
 
         # if we randomly shift to augment the data
         self.random_shift = random_shift

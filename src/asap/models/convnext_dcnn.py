@@ -20,7 +20,8 @@ DEFAULT = {
     'kernel2': 1,
     'dropout': 0.3,
     'final_dropout': 0.05,
-    'use_map': False
+    'use_map': False,
+    'num_heads': 1,
 }
 
 
@@ -41,7 +42,7 @@ class ConvNeXtDCNN(nn.Module):
         if self.use_map:
             self.unmap_predictor = UnmapPredictor(channels_in=config['filters0'])
 
-        self.core = BasenjiCoreBlock(nr_tracks=1, window=window, filters_in=config['filters0'],
+        self.core = BasenjiCoreBlock(nr_tracks=config['num_heads'], window=window, filters_in=config['filters0'],
                       nr_res_blocks=config['residual_blocks'],
                       rate_mult=config['dilation_mult'],
                       bin_size=config['bin_size'],
@@ -93,6 +94,7 @@ class BasenjiCoreBlock(nn.Module):
         pool_size = bin_size // 2
         self.pool = nn.AvgPool1d(kernel_size=pool_size, stride=pool_size)
 
+        print("creating output layer with tracks:", nr_tracks)
         self.linear_out = nn.Linear(
             in_features=filters3,
             out_features=nr_tracks,
