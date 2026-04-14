@@ -39,7 +39,7 @@ class Trainer:
 
         self.logger: Logger = logger
         self.logspace = True 
-        self.nr_tracks = nr_tracks
+        self.nr_tracks = 1
         self.nr_devices = n_gpus
         self.batch_size = batch_size
         self.num_heads = num_heads
@@ -401,9 +401,7 @@ def _fit(
             logger.log({'lr': scheduler.get_last_lr()[0]})
             predictions, true = val_res
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
-            for head in range(num_heads):
-                print("Head: ", head)
-                print("Debug", predictions.shape, true.shape)
+            for head in range(num_heads): 
                 predictions_head, true_head = predictions[..., head].flatten().numpy(), true[..., head].flatten().numpy()
                 val_log_payload = compute_metrics(
                     predictions_head,

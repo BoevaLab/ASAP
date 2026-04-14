@@ -20,6 +20,12 @@ def main():
 
     signal_file_2 =  "data/K562/ENCFF357GNC-signal.bigWig"
     peak_file_2 = "data/K562/ENCFF333TAT-peak.bed.gz"
+
+    signal_file_3 =  "data/HepG2/ENCFF262URW-signal.bigWig"
+    peak_file_3 = "data/HepG2/ENCFF439EIO-peak.bed.gz"
+
+    signal_file_4 =  "data/IMR90/ENCFF770EAV-signal.bigWig"
+    peak_file_4 = "data/IMR90/ENCFF243NTP-peak.bed.gz"
     
     genome = "data/hg38.fa"
     blacklist_file = ["data/basenji_blacklist.bed", "data/example_snv.vcf"]
@@ -29,18 +35,18 @@ def main():
 
     # Model parameters
     model_name = "convnext_dcnn"
-    experiment_name = "GM12878_K562"
+    experiment_name = "all4"
 
     # Training parameters
-    test_chroms = [2, 10, 14, 19, 21]
-    train_chroms  = [1, 11, 20, 13]
-    val_chroms = [x for x in range(1, 23) if x not in test_chroms and x not in val_chroms]
+    test_chroms = [1, 11, 20, 13]
+    train_chroms  = [2, 10, 14, 19, 21]
+    val_chroms = [x for x in range(1, 23) if x not in test_chroms and x not in train_chroms]
     n_gpus = 2
 
     # Create the training and validation datasets
     print("create the dataset")
     train_comb, val_comb = asap.training_datasets(
-        signal_file=[signal_file_1, signal_file_2],
+        signal_file=[signal_file_1, signal_file_2, signal_file_3, signal_file_4],
         genome=genome,
         train_chroms=train_chroms,
         val_chroms=val_chroms,
@@ -49,15 +55,6 @@ def main():
         unmap_file=unmap_file,
     )
 
-
-
-
-    # print(train_comb.X[0].shape)
-
-    # print(train_comb.y[0].shape)
-
-    # print(train_comb.y[0][0])
-
     
     print("start to train!!!\n")
 
@@ -65,7 +62,7 @@ def main():
     asap.train_multiheaded_model(
         experiment_name=experiment_name,
         model=model_name,
-        num_heads=2,
+        num_heads=4,
         train_dataset=train_comb,
         val_dataset=val_comb,
         logs_dir=logs_dir,
@@ -95,12 +92,24 @@ def main():
         blacklist_file=blacklist_file,
         unmap_file=unmap_file,
     )
-
-    # print(len(peak1.X), len(peak1.y))
-    # print("y")
-    # print(peak.y[0][0][100])
-    # print(peak1.y[0].shape)
-    # print(peak2.y[0][0][100])
+    peak3 = asap.peak_dataset(
+        signal_file=signal_file_3,
+        peak_file=peak_file_3,
+        genome=genome,
+        chroms=test_chroms,
+        generated=generated,
+        blacklist_file=blacklist_file,
+        unmap_file=unmap_file,
+    )
+    peak4 = asap.peak_dataset(
+        signal_file=signal_file_4,
+        peak_file=peak_file_4,
+        genome=genome,
+        chroms=test_chroms,
+        generated=generated,
+        blacklist_file=blacklist_file,
+        unmap_file=unmap_file,
+    )
 
     # Evaluate the model
     peak_scores_head1 = asap.eval_multihead_model(
@@ -108,7 +117,7 @@ def main():
         model=model_name,
         eval_dataset=peak1,
         logs_dir=logs_dir,
-        num_heads=2,
+        num_heads=4,
         target_head=0,
     )
     print("Peak scores head1:", peak_scores_head1)
@@ -121,19 +130,44 @@ def main():
         model=model_name,
         eval_dataset=peak2,
         logs_dir=logs_dir,
-        num_heads=2,
+        num_heads=4,
         target_head=1,
     )
     print("Peak scores head2:", peak_scores_head2)
     print()
     print()
 
+    peak_scores_head3 = asap.eval_multihead_model(
+        experiment_name=experiment_name,
+        model=model_name,
+        eval_dataset=peak3,
+        logs_dir=logs_dir,
+        num_heads=4,
+        target_head=2,
+    )
+    print("Peak scores head3:", peak_scores_head3)
+    print()
+    print()
+
+    peak_scores_head4 = asap.eval_multihead_model(
+        experiment_name=experiment_name,
+        model=model_name,
+        eval_dataset=peak4,
+        logs_dir=logs_dir,
+        num_heads=4,
+        target_head=3,
+    )
+    print("Peak scores head4:", peak_scores_head4)
+    print()
+    print()
+
+
     peak_scores_bad = asap.eval_multihead_model(
         experiment_name=experiment_name,
         model=model_name,
         eval_dataset=peak1,
         logs_dir=logs_dir,
-        num_heads=2,
+        num_heads=4,
         target_head=1,
     )
     print("Peak scores bad:", peak_scores_bad)
