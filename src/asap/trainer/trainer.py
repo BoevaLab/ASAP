@@ -458,8 +458,7 @@ def _predict(model, gen, rank, ddp_enabled):
     for i, (X_i, _, y_i) in enumerate(gen):
         X_i = X_i.to(rank)
         y_i = y_i.to(rank)
-        if i == 2040:
-            print(X_i[0,1005:-1005,:])
+        
 
         with torch.no_grad():
             p_i = model(X_i)
