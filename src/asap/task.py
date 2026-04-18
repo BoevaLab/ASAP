@@ -418,7 +418,7 @@ def export_predictions(experiment_name: str, model: str, eval_dataset: BaseDatas
             is_train=False
         )
 
-        _, predictions, _ = trainer.predict_and_evaluate(test_gen)
+        _, predictions, _ = trainer.predict_and_evaluate(test_gen, no_eval=True)
         predictions = np.exp(predictions)-1
         predictions = np.reshape(predictions, (-1,256))   # Total 256 bins predicted per input
         predictions = np.expand_dims(predictions, axis=0)   # Converting the array from shape (...) to (1, ...) to account for single chromosome
