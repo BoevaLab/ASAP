@@ -169,13 +169,57 @@ def train_new_head_continually(base_experiment_name: str, new_experiment_name: s
         n_gpus = torch.cuda.device_count()
         print(f"Requested {n_gpus} GPUs, but only {torch.cuda.device_count()} are available. Using {n_gpus} GPUs instead.")
 
+    # Check size of replay batch 
+    if replay_batch_size >= total_batch_size:
+        raise ValueError("Replay batch size must be smaller than total batch size.")
+
     # Initialize the model
     model = _get_model(model, use_map=use_map)
 
     # Initialize the trainer with the model and datasets
+    trainer = Trainer(
+        filename=new_experiment_name, 
+        model=model,
+        criterion=nn.PoissonNLLLoss(log_input=False),
+        unmap_criterion=use_map,
+        batch_size=total_batch_size,
+        logger=TextLogger(logs_dir=logs_dir), 
+        n_gpus=n_gpus,
+        linear_probe=True,
+        cont_learn=True,
+    )
 
+    print(f'Loading best model weights from {base_experiment_name}')
+    checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / base_experiment_name / 'checkpoint.pth'
+    trainer.load_weights(checkpoint_path)
 
-    return 
+    ## Copied from Claudiu - TODO change  
+    # Replace head
+    in_features = trainer.model.core.linear_out.in_features
+    out_features = trainer.model.core.linear_out.out_features 
+    trainer.model.core.linear_out = nn.Linear(in_features, out_features)
+
+    # # Freeze everything
+    # for param in trainer.model.parameters():
+    #     param.requires_grad = False
+
+    # # Unfreeze head
+    # for param in trainer.model.core.linear_out.parameters():
+    #     param.requires_grad = True
+
+    # set modes such that there is no dropout for the core
+    trainer.model.eval()
+    trainer.model.core.linear_out.train()
+
+    trainer.fit(
+        train_dset=train_dataset,
+        val_dset=val_dataset,
+        nr_epochs=max_epochs,
+        learning_rate=learning_rate, 
+        train_buffer=buffer_train_dataset, 
+        val_buffer=buffer_val_dataset,
+        )
+    print("Done with continual learning of a new head.")
 
 def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: List[BaseDataset], val_dataset: List[BaseDataset], logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
     """
