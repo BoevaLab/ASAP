@@ -27,6 +27,7 @@ dependencies:
 - readline=8.2=h5eee18b_0
 - pip:
   - antlr4-python3-runtime==4.9.3
+  - avalanche-lib
   - dacite
   - filelock==3.13.1
   - fsspec==2023.12.2
