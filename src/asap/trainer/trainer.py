@@ -92,18 +92,37 @@ class Trainer:
             )
         else:
             self.model.to(self.device)
-            train_gen = make_dataloader(
-                ddp_enabled=False,
-                dataset=train_dset,
-                batch_size=self.batch_size,
-                is_train=True
-            )
-            val_gen = make_dataloader(
-                ddp_enabled=False,
-                dataset=val_dset,
-                batch_size=self.batch_size,
-                is_train=False
-            )
+
+            if train_buffer is not None: 
+                train_gen = make_dataloader(
+                    ddp_enabled=False,
+                    dataset=train_dset,
+                    batch_size=self.batch_size-self.buffer_batch_size,
+                    is_train=True
+                )
+            else:
+                train_gen = make_dataloader(
+                    ddp_enabled=False,
+                    dataset=train_dset,
+                    batch_size=self.batch_size,
+                    is_train=True
+                )
+
+            if val_buffer is not None:
+                val_gen = make_dataloader(
+                    ddp_enabled=False,
+                    dataset=val_dset,
+                    batch_size=self.batch_size-self.buffer_batch_size,
+                    is_train=False
+                )
+            else: 
+                val_gen = make_dataloader(
+                    ddp_enabled=False,
+                    dataset=val_dset,
+                    batch_size=self.batch_size,
+                    is_train=False
+                )
+            
             train_buffer_gen = make_dataloader(
                 ddp_enabled=False,
                 dataset=train_buffer,
@@ -330,7 +349,6 @@ def setup_ddp(rank, world_size, model, port):
     model = DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=False)
     return model
 
-# TODO change normal batch size to be full - replay 
 def _ddp_and_fit(
         rank,
         model,
@@ -354,18 +372,39 @@ def _ddp_and_fit(
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
-    train_gen = make_dataloader(
-        ddp_enabled=True,
-        dataset=train_dset,
-        batch_size=batch_size,
-        is_train=True
-    )
-    val_gen = make_dataloader(
-        ddp_enabled=True,
-        dataset=val_dset,
-        batch_size=batch_size,
-        is_train=False
-    )
+
+    if train_buffer is not None:
+        train_gen = make_dataloader(
+            ddp_enabled=True,
+            dataset=train_dset,
+            batch_size=batch_size-buffer_batch_size,
+            is_train=True
+        )
+        
+    else:
+        train_gen = make_dataloader(
+            ddp_enabled=True,
+            dataset=train_dset,
+            batch_size=batch_size,
+            is_train=True
+        )
+        
+
+    if val_buffer is not None:
+        val_gen = make_dataloader(
+            ddp_enabled=True,
+            dataset=val_dset,
+            batch_size=batch_size-buffer_batch_size,
+            is_train=False
+        )
+    else:
+        val_gen = make_dataloader(
+            ddp_enabled=True,
+            dataset=val_dset,
+            batch_size=batch_size,
+            is_train=False
+        )
+    
     train_buffer_gen = make_dataloader(
         ddp_enabled=True,
         dataset=train_buffer,
