@@ -440,7 +440,6 @@ def _fit(
             unmap_criterion,
             num_heads,
             train_buffer_gen,
-            val_buffer_gen,
         )
 
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
@@ -503,7 +502,6 @@ def _train_epoch(
         unmap_criterion, 
         num_heads=1, 
         train_buffer_gen=None, 
-        val_buffer_gen=None
         ):
     model.train()
 
@@ -512,31 +510,69 @@ def _train_epoch(
     if rank == 0:
         # pbar if on rank 0
         train_gen = tqdm(train_gen)
+    
+    if train_buffer_gen is not None:
+        for (X_i, m_i, y_i), (Xb_i, mb_i, yb_i) in zip(train_gen, train_buffer_gen):
+            Xc_i = torch.cat([X_i, Xb_i], dim=0)
+            mc_i = torch.cat([m_i, mb_i], dim=0)
+            yc_i = torch.cat([y_i, yb_i], dim=0)
 
-    for X_i, m_i, y_i in train_gen:
-        X_i = X_i.to(rank)
-        m_i = m_i.to(rank)
-        y_i = y_i.to(rank)
-        optimizer.zero_grad()
-        if train_unmap:
-            output, output_m_i = model(X_i, return_unmap=True)
-            # trim m_i in case of unpadded conv in stem
-            m_len = output_m_i.shape[1]
-            unmap_loss = unmap_criterion(output_m_i, m_i[:, :m_len])
+            Xc_i = Xc_i.to(rank)
+            mc_i = mc_i.to(rank)
+            yc_i = yc_i.to(rank)
+            
+            # X_i = X_i.to(rank)
+            # m_i = m_i.to(rank)
+            # y_i = y_i.to(rank)
+            # Xb_i = Xb_i.to(rank)
+            # mb_i = mb_i.to(rank)
+            # yb_i = yb_i.to(rank)
 
-            base_loss = 0
-            for head in range(num_heads):
-                base_loss += criterion(output[head], y_i[..., head:head+1])
-            loss = base_loss + unmap_loss
-        else:
-            output = model(X_i)
-            loss = 0
-            for head in range(num_heads):
-                loss += criterion(output[head], y_i[..., head:head+1])
+            optimizer.zero_grad()
+            if train_unmap:
+                output, output_m_i = model(Xc_i, return_unmap=True)
+                # trim m_i in case of unpadded conv in stem
+                m_len = output_m_i.shape[1]
+                unmap_loss = unmap_criterion(output_m_i, mc_i[:, :m_len])
 
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
+                base_loss = 0
+                for head in range(num_heads):
+                    base_loss += criterion(output[head], yc_i[..., head:head+1])
+                loss = base_loss + unmap_loss
+            else:
+                output = model(Xc_i)
+                loss = 0
+                for head in range(num_heads):
+                    loss += criterion(output[head], yc_i[..., head:head+1])
+
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+    else: 
+        for X_i, m_i, y_i in train_gen:
+            X_i = X_i.to(rank)
+            m_i = m_i.to(rank)
+            y_i = y_i.to(rank)
+            optimizer.zero_grad()
+            if train_unmap:
+                output, output_m_i = model(X_i, return_unmap=True)
+                # trim m_i in case of unpadded conv in stem
+                m_len = output_m_i.shape[1]
+                unmap_loss = unmap_criterion(output_m_i, m_i[:, :m_len])
+
+                base_loss = 0
+                for head in range(num_heads):
+                    base_loss += criterion(output[head], y_i[..., head:head+1])
+                loss = base_loss + unmap_loss
+            else:
+                output = model(X_i)
+                loss = 0
+                for head in range(num_heads):
+                    loss += criterion(output[head], y_i[..., head:head+1])
+
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
 
 
 def compare_tensor(tsr, rank, prefix='', mode='bool', ref=None):
