@@ -327,7 +327,7 @@ def setup_ddp(rank, world_size, model, port):
     model = DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=False)
     return model
 
-
+# TODO change normal batch size to be full - replay 
 def _ddp_and_fit(
         rank,
         model,
@@ -492,8 +492,19 @@ def _fit(
             dist.barrier() # sync
     print('Completed training!')
 
-
-def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, num_heads=1, train_buffer_gen=None, val_buffer_gen=None):
+# TODO implement replay 
+def _train_epoch(
+        rank, 
+        model, 
+        train_gen, 
+        optimizer, 
+        scheduler, 
+        criterion, 
+        unmap_criterion, 
+        num_heads=1, 
+        train_buffer_gen=None, 
+        val_buffer_gen=None
+        ):
     model.train()
 
     train_unmap = unmap_criterion is not None

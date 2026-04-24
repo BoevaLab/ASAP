@@ -139,7 +139,22 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
     print("trained a new model")
 
 # TODO: add buffer and not the entire dataset 
-def train_new_head_continually(base_experiment_name: str, new_experiment_name: str, model: str, buffer_train_dataset: BaseDataset, buffer_val_dataset: BaseDataset, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, total_batch_size: int=64, replay_batch_size: int=32, use_map: bool=False):
+def train_new_head_continually(
+        base_experiment_name: str, 
+        new_experiment_name: str, 
+        model: str, 
+        buffer_train_dataset: BaseDataset, 
+        buffer_val_dataset: BaseDataset, 
+        train_dataset: BaseDataset, 
+        val_dataset: BaseDataset, 
+        logs_dir: str, 
+        n_gpus: int=0, 
+        max_epochs: int=70, 
+        learning_rate: float=1e-3, 
+        total_batch_size: int=64, 
+        replay_batch_size: int=32, 
+        use_map: bool=False
+        ):
     ''' 
     Continually train a new head while replaying samples from the original training data. 
     Args:
