@@ -31,6 +31,7 @@ class Trainer:
                  nr_tracks: int = 1,
                  num_heads: int = 1,
                  linear_probe=False,
+                 cont_learn=False,
                  ):
         self.filename = filename
         self.model = model
@@ -45,6 +46,7 @@ class Trainer:
         self.batch_size = batch_size
         self.num_heads = num_heads
         self.linear_probe = linear_probe
+        self.cont_learn = cont_learn
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
@@ -58,7 +60,7 @@ class Trainer:
             self.device = 'cpu'
             self.model.to(self.device)
 
-    def fit(self, train_dset, val_dset, nr_epochs, learning_rate):
+    def fit(self, train_dset, val_dset, nr_epochs, learning_rate, train_buffer=None, val_buffer=None):
         print(f'Training {self.filename}...')
         if self.nr_devices > 1:
             port = 10000 + randint(0,2355)
@@ -78,7 +80,10 @@ class Trainer:
                     self.nr_devices,
                     port,
                     self.num_heads,
-                    self.linear_probe
+                    self.linear_probe,
+                    self.cont_learn,
+                    train_buffer,
+                    val_buffer,
                 ),
                 nprocs=self.nr_devices
             )
@@ -96,6 +101,18 @@ class Trainer:
                 batch_size=self.batch_size,
                 is_train=False
             )
+            train_buffer_gen = make_dataloader(
+                ddp_enabled=False,
+                dataset=train_buffer,
+                batch_size=32, # TODO - pass as argument
+                is_train=True
+            ) if train_buffer is not None else None
+            val_buffer_gen = make_dataloader(
+                ddp_enabled=False,
+                dataset=val_buffer,
+                batch_size=32, # TODO - pass as argument
+                is_train=False
+            ) if val_buffer is not None else None
             _fit(    
                 self.device,
                 self.model,
@@ -110,6 +127,9 @@ class Trainer:
                 ddp_enabled=False,
                 num_heads=self.num_heads,
                 linear_probe=self.linear_probe,
+                cont_learn=self.cont_learn,
+                train_buffer_gen=train_buffer_gen,
+                val_buffer_gen=val_buffer_gen,
             )
 
     def predict(self, gen):
@@ -324,6 +344,9 @@ def _ddp_and_fit(
         port=12355,
         num_heads=1,
         linear_probe=False,
+        cont_learn=False,
+        train_buffer=None,
+        val_buffer=None,
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
@@ -339,6 +362,18 @@ def _ddp_and_fit(
         batch_size=batch_size,
         is_train=False
     )
+    train_buffer_gen = make_dataloader(
+        ddp_enabled=True,
+        dataset=train_buffer,
+        batch_size=32, # TODO - pass as argument
+        is_train=True
+    ) if train_buffer is not None else None
+    val_buffer_gen = make_dataloader(
+        ddp_enabled=True,
+        dataset=val_buffer,
+        batch_size=32, # TODO - pass as argument
+        is_train=False
+    ) if val_buffer is not None else None
     _fit(
         rank=rank,
         model=model,
@@ -353,6 +388,9 @@ def _ddp_and_fit(
         ddp_enabled=True,
         num_heads=num_heads,
         linear_probe=linear_probe,
+        cont_learn=cont_learn,
+        train_buffer_gen=train_buffer_gen,
+        val_buffer_gen=val_buffer_gen,
     )
     dist.destroy_process_group()
 
@@ -371,6 +409,9 @@ def _fit(
         ddp_enabled: bool,
         num_heads: int,
         linear_probe=False,
+        cont_learn=False,
+        train_buffer_gen=None,
+        val_buffer_gen=None
     ):
     if linear_probe:
         optimizer = configure_adamw(model.core.linear_out, lr=learning_rate)
@@ -397,7 +438,10 @@ def _fit(
             scheduler,
             criterion,
             unmap_criterion,
-            num_heads)
+            num_heads,
+            train_buffer_gen,
+            val_buffer_gen,
+        )
 
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
             logger.log(train_log_payload, step=epoch)
@@ -449,7 +493,7 @@ def _fit(
     print('Completed training!')
 
 
-def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, num_heads=1):
+def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, num_heads=1, train_buffer_gen=None, val_buffer_gen=None):
     model.train()
 
     train_unmap = unmap_criterion is not None

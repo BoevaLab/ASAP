@@ -116,7 +116,7 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
     checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / base_experiment_name / 'checkpoint.pth'
     trainer.load_weights(checkpoint_path)
 
-     # replace head
+    # replace head
     in_features = trainer.model.core.linear_out.in_features
     out_features = trainer.model.core.linear_out.out_features 
     trainer.model.core.linear_out = nn.Linear(in_features, out_features)
@@ -137,6 +137,45 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
     print("trained a new model")
+
+# TODO: add buffer and not the entire dataset 
+def train_new_head_continually(base_experiment_name: str, new_experiment_name: str, model: str, buffer_train_dataset: BaseDataset, buffer_val_dataset: BaseDataset, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, total_batch_size: int=64, replay_batch_size: int=32, use_map: bool=False):
+    ''' 
+    Continually train a new head while replaying samples from the original training data. 
+    Args:
+        base_experiment_name (str): The name of the model whose weights will be loaded.
+        new_experiment_name (str): The name of the experiment for the new head.
+        model (str): The model to tune.
+        buffer_train_dataset: The training dataset for the buffer.
+        buffer_val_dataset: The validation dataset for the buffer.
+        train_dataset: The training dataset for the new head.
+        val_dataset: The validation dataset for the new head.
+        logs_dir (str): The directory to load model checkpoints from and save new logs.
+        n_gpus (int): The number of GPUs to use for training.
+        max_epochs (int): The maximum number of epochs to train.
+        learning_rate (float): The learning rate for the optimizer.
+        total_batch_size (int): The total batch size for training (including replay samples).
+        replay_batch_size (int): The number of samples within each batch from the original training data.
+        use_map (bool): If mappability information was used during training.
+    '''
+
+    # Check if gpu is available
+    if n_gpus > 0 and not torch.cuda.is_available():
+        n_gpus = 0
+        print("No GPU available, using CPU instead.")
+
+    # Count the number of GPUs available
+    if n_gpus > torch.cuda.device_count():
+        n_gpus = torch.cuda.device_count()
+        print(f"Requested {n_gpus} GPUs, but only {torch.cuda.device_count()} are available. Using {n_gpus} GPUs instead.")
+
+    # Initialize the model
+    model = _get_model(model, use_map=use_map)
+
+    # Initialize the trainer with the model and datasets
+
+
+    return 
 
 def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: List[BaseDataset], val_dataset: List[BaseDataset], logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
     """
