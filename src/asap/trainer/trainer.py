@@ -32,6 +32,7 @@ class Trainer:
                  num_heads: int = 1,
                  linear_probe=False,
                  cont_learn=False,
+                 buffer_batch_size=32,
                  ):
         self.filename = filename
         self.model = model
@@ -47,6 +48,7 @@ class Trainer:
         self.num_heads = num_heads
         self.linear_probe = linear_probe
         self.cont_learn = cont_learn
+        self.buffer_batch_size = buffer_batch_size
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
@@ -84,6 +86,7 @@ class Trainer:
                     self.cont_learn,
                     train_buffer,
                     val_buffer,
+                    self.buffer_batch_size // self.nr_devices 
                 ),
                 nprocs=self.nr_devices
             )
@@ -104,13 +107,13 @@ class Trainer:
             train_buffer_gen = make_dataloader(
                 ddp_enabled=False,
                 dataset=train_buffer,
-                batch_size=32, # TODO - pass as argument
+                batch_size=self.buffer_batch_size, 
                 is_train=True
             ) if train_buffer is not None else None
             val_buffer_gen = make_dataloader(
                 ddp_enabled=False,
                 dataset=val_buffer,
-                batch_size=32, # TODO - pass as argument
+                batch_size=self.buffer_batch_size, 
                 is_train=False
             ) if val_buffer is not None else None
             _fit(    
@@ -347,6 +350,7 @@ def _ddp_and_fit(
         cont_learn=False,
         train_buffer=None,
         val_buffer=None,
+        buffer_batch_size=32,
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
@@ -365,13 +369,13 @@ def _ddp_and_fit(
     train_buffer_gen = make_dataloader(
         ddp_enabled=True,
         dataset=train_buffer,
-        batch_size=32, # TODO - pass as argument
+        batch_size=buffer_batch_size,
         is_train=True
     ) if train_buffer is not None else None
     val_buffer_gen = make_dataloader(
         ddp_enabled=True,
         dataset=val_buffer,
-        batch_size=32, # TODO - pass as argument
+        batch_size=buffer_batch_size, 
         is_train=False
     ) if val_buffer is not None else None
     _fit(
