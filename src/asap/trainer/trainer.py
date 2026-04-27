@@ -166,6 +166,7 @@ class Trainer:
         print(result_metrics)
         return result_metrics
 
+    # TODO potentially edit to include CL 
     def predict_and_evaluate_multihead(self, gen, metrics_for_track=None, no_eval=False, target_head=0) -> Tuple[np.ndarray, np.ndarray, dict]:
         self.model.eval()
 
@@ -534,7 +535,6 @@ def _fit(
             dist.barrier() # sync
     print('Completed training!')
 
-# TODO implement replay 
 def _train_epoch(
         rank, 
         model, 

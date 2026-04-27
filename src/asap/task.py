@@ -161,8 +161,8 @@ def train_new_head_continually(
         base_experiment_name (str): The name of the model whose weights will be loaded.
         new_experiment_name (str): The name of the experiment for the new head.
         model (str): The model to tune.
-        buffer_train_dataset: The training dataset for the buffer.
-        buffer_val_dataset: The validation dataset for the buffer.
+        buffer_train_dataset: The training dataset from the buffer.
+        buffer_val_dataset: The validation dataset from the buffer.
         train_dataset: The training dataset for the new head.
         val_dataset: The validation dataset for the new head.
         logs_dir (str): The directory to load model checkpoints from and save new logs.
