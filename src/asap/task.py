@@ -235,6 +235,7 @@ def train_multiheaded_model_continually(
         print(f'Finished training for the step {i} with {num_heads[i]} heads.')
 
     print('Finished continually training the model.')
+    print(f'Final model is saved as {experiment_name}_{num_heads[-1]} in {logs_dir}.')
 
 
 def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False,  num_heads: int=1, target_head:int = 0):
