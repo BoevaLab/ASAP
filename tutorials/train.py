@@ -35,17 +35,27 @@ def main():
 
     # Model parameters
     model_name = "convnext_dcnn"
-    experiment_name = "all4"
+    experiment_name = "3_to_4_multihead"
 
     # Training parameters
     test_chroms = [1, 11, 20, 13]
     train_chroms  = [2, 10, 14, 19, 21]
     val_chroms = [x for x in range(1, 23) if x not in test_chroms and x not in train_chroms]
-    n_gpus = 2
+    n_gpus = 4
 
     # Create the training and validation datasets
-    print("create the dataset")
-    train_comb, val_comb = asap.training_datasets(
+    # TODO update when partitioning datasets
+    print("Create the datasets.")
+    train_comb_3, val_comb_3 = asap.training_datasets(
+        signal_file=[signal_file_1, signal_file_2, signal_file_3],
+        genome=genome,
+        train_chroms=train_chroms,
+        val_chroms=val_chroms,
+        generated=generated,
+        blacklist_file=blacklist_file,
+        unmap_file=unmap_file,
+    )
+    train_comb_4, val_comb_4 = asap.training_datasets(
         signal_file=[signal_file_1, signal_file_2, signal_file_3, signal_file_4],
         genome=genome,
         train_chroms=train_chroms,
@@ -55,18 +65,21 @@ def main():
         unmap_file=unmap_file,
     )
 
-    
-    print("start to train!!!\n")
+    print("Start to train!!!\n")
 
     # Train the model
-    asap.train_multiheaded_model(
+    asap.train_multiheaded_model_continually(
         experiment_name=experiment_name,
         model=model_name,
-        num_heads=4,
-        train_dataset=train_comb,
-        val_dataset=val_comb,
+        train_dataset=[train_comb_3, train_comb_4],
+        val_dataset=[val_comb_3, val_comb_4],
         logs_dir=logs_dir,
         n_gpus=n_gpus,
+        max_epochs=20,
+        learning_rate=1e-3,
+        batch_size=64,
+        use_map=False,
+        num_heads=[3, 4],
     )
 
     print("Training done.")
@@ -111,9 +124,11 @@ def main():
         unmap_file=unmap_file,
     )
 
+    final_experiment_name = f'{experiment_name}_4'
+
     # Evaluate the model
     peak_scores_head1 = asap.eval_multihead_model(
-        experiment_name=experiment_name,
+        experiment_name=final_experiment_name,
         model=model_name,
         eval_dataset=peak1,
         logs_dir=logs_dir,
@@ -126,7 +141,7 @@ def main():
 
 
     peak_scores_head2 = asap.eval_multihead_model(
-        experiment_name=experiment_name,
+        experiment_name=final_experiment_name,
         model=model_name,
         eval_dataset=peak2,
         logs_dir=logs_dir,
@@ -138,7 +153,7 @@ def main():
     print()
 
     peak_scores_head3 = asap.eval_multihead_model(
-        experiment_name=experiment_name,
+        experiment_name=final_experiment_name,
         model=model_name,
         eval_dataset=peak3,
         logs_dir=logs_dir,
@@ -150,7 +165,7 @@ def main():
     print()
 
     peak_scores_head4 = asap.eval_multihead_model(
-        experiment_name=experiment_name,
+        experiment_name=final_experiment_name,
         model=model_name,
         eval_dataset=peak4,
         logs_dir=logs_dir,
@@ -163,7 +178,7 @@ def main():
 
 
     peak_scores_bad = asap.eval_multihead_model(
-        experiment_name=experiment_name,
+        experiment_name=final_experiment_name,
         model=model_name,
         eval_dataset=peak1,
         logs_dir=logs_dir,
