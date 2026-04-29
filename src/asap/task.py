@@ -204,8 +204,14 @@ def train_multiheaded_model_continually(
     for i in range(1, len(num_heads)):
         # print(f'Starting continual training for step {i} with {num_heads[i]} heads.')
 
+        # TODO get the best weights not the latest - CHECK IF WORKS 
         # Initialize the next model with the previous model's weights 
         model_tmp = _get_model(model_type, use_map=use_map, num_heads=num_heads[i])
+
+        print(f'Loading best model weights from {trainer.filename}')
+        checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / trainer.filename / 'checkpoint.pth'
+        trainer.load_weights(checkpoint_path)
+
         print('Loading model weights from previous step.')
         model_tmp.load_state_dict(trainer.model.state_dict(), strict=False) # strict=False should allow loading when number of heads changes 
         model = model_tmp
