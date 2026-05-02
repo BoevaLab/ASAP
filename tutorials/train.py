@@ -128,6 +128,18 @@ def main():
     print("Finished")
 
 
+    print("training a new head")
+    asap.train_new_head(
+        base_experiment_name=experiment_name,
+        new_experiment_name=f"{experiment_name}-new-head",
+        model=model_name,
+        train_dataset=train_lp,
+        val_dataset=val_lp,
+        logs_dir=logs_dir,
+        n_gpus=n_gpus,
+        max_epochs=15,
+    )
+
 if __name__ == "__main__":
     print("hi")
     # sudo mount -a

@@ -30,6 +30,7 @@ class Trainer:
                  n_gpus: int = None,
                  nr_tracks: int = 1,
                  num_heads: int = 1,
+                 linear_probe=False,
                  ):
         self.filename = filename
         self.model = model
@@ -43,6 +44,7 @@ class Trainer:
         self.nr_devices = n_gpus
         self.batch_size = batch_size
         self.num_heads = num_heads
+        self.linear_probe = linear_probe
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
@@ -74,6 +76,7 @@ class Trainer:
                     self.logger,
                     self.filename,
                     self.nr_devices,
+                    self.linear_probe,
                     port,
                     self.num_heads
                 ),
@@ -105,7 +108,8 @@ class Trainer:
                 self.logger,
                 self.filename,
                 ddp_enabled=False,
-                num_heads=self.num_heads
+                num_heads=self.num_heads,
+                linear_probe=self.linear_probe,
             )
 
     def predict(self, gen):
@@ -317,6 +321,7 @@ def _ddp_and_fit(
         logger,
         filename,
         world_size,
+        linear_probe,
         port=12355,
         num_heads=1,
     ):
@@ -347,6 +352,7 @@ def _ddp_and_fit(
         filename=filename,
         ddp_enabled=True,
         num_heads=num_heads,
+        linear_probe=linear_probe,
     )
     dist.destroy_process_group()
 
@@ -364,8 +370,13 @@ def _fit(
         filename: str,
         ddp_enabled: bool,
         num_heads: int,
+        linear_probe=False,
     ):
-    optimizer = configure_adamw(model, lr=learning_rate)
+
+    if linear_probe:
+        optimizer = configure_adamw(model.core.linear_out, lr=learning_rate)
+    else:
+        optimizer = configure_adamw(model, lr=learning_rate)
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
         optimizer=optimizer,
         warmup_steps=int(len(train_gen) * 0.25),
