@@ -1,10 +1,9 @@
-# remove this file if the branch is merged
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 
 test_chroms = [1, 11, 20, 13]
-datasets = ["GM12878", "K562", "HepG2", "IMR90"]
+datasets = ["GM12878", "K562"]
 
 # 4 models
 GM12878_single = [0.701, 0.695, 0.692, 0.687] # 11 epochs
@@ -27,18 +26,15 @@ IMR90_4head = [0.742, 0.733, 0.729, 0.708]
 
 
 
-data_single = [GM12878_single, K562_single, HepG2_single, IMR90_single]
-data_4head = [GM12878_4head, K562_4head, HepG2_4head, IMR90_4head]
+data_single = [GM12878_single, K562_single]
+data_2head = [GM12878_2head, K562_2head]
 
 # Compute means and stds
 means_single = [np.mean(d) for d in data_single]
 stds_single = [np.std(d) for d in data_single]
-means_4head = [np.mean(d) for d in data_4head]
-stds_4head = [np.std(d) for d in data_4head]
-print(means_4head)
-print(means_single)
+means_2head = [np.mean(d) for d in data_2head]
+stds_2head = [np.std(d) for d in data_2head]
 
-# 1. Calculate P-values and Stars
 def get_sig_star(p):
     if p < 0.001: return '***'
     elif p < 0.01: return '**'
@@ -46,9 +42,8 @@ def get_sig_star(p):
     else: return 'ns'
 
 p_values = []
-for s, h in zip(data_single, data_4head):
-    # Using paired t-test because observations are on the same chromosomes
-    _, p = stats.ttest_rel(s, h)
+for s, h in zip(data_single, data_2head):
+    _, p = stats.wilcoxon(s, h) # Wilcox
     p_values.append(p)
 
 # Plotting
@@ -58,8 +53,8 @@ width = 0.35
 plt.figure(figsize=(8, 6))
 
 # Plot the points with error bars
-plt.errorbar(x - width/4, means_4head, yerr=stds_4head,
-             fmt='o', capsize=5, label='1 model (4 heads)', color='#1f77b4')
+plt.errorbar(x - width/4, means_2head, yerr=stds_2head,
+             fmt='o', capsize=5, label='1 model (2 heads)', color='#1f77b4')
 
 plt.errorbar(x + width/4, means_single, yerr=stds_single,
              fmt='o', capsize=5, label='Independent Models', color='#ff7f0e')
@@ -67,7 +62,7 @@ plt.errorbar(x + width/4, means_single, yerr=stds_single,
 # 2. Add Significance Brackets
 for i in range(len(datasets)):
     # Determine height of the bracket
-    y_max = max(means_4head[i] + stds_4head[i], means_single[i] + stds_single[i])
+    y_max = max(means_2head[i] + stds_2head[i], means_single[i] + stds_single[i])
     y_line = y_max + 0.005  # Bracket baseline
     h = 0.003              # Bracket tick height
     
@@ -87,10 +82,10 @@ plt.xlabel("Dataset", fontsize=13)
 plt.ylabel("Pearson's R", fontsize=13)
 plt.title("Model Comparison Across Datasets", fontsize=14, pad=20)
 plt.legend(frameon=False)
-plt.ylim(0.6, 0.8) # Adjusted to fit brackets
+plt.ylim(0.67, 0.74) # Adjusted to fit brackets
 plt.tight_layout()
 
-plt.savefig("4head-comparison-with-stats.png")
+plt.savefig("2head-comparison-with-stats.png")
 plt.show()
 
 # Print values for verification

@@ -3,12 +3,14 @@ generated/**
 wandb/**
 */.DS_Store
 .idea
+*.png
 
 /data
 /checkpoint
 /logs
 /plots
 /archive/imgs/
+/tmp
 
 
 # Created by https://www.gitignore.io/api/macos,python,R,linux,vim,emacs,visualstudiocode,intellij

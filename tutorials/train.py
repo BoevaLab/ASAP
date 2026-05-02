@@ -14,19 +14,32 @@ import asap
 
 def main():
 
-    # Data paths
-    signal_file_1 =  "data/GM12878/ENCFF667MDI-signal.bigWig"
-    peak_file_1 = "data/GM12878/ENCFF748UZH-peak.bed"
+    leomed_path = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw"
 
-    signal_file_2 =  "data/K562/ENCFF357GNC-signal.bigWig"
-    peak_file_2 = "data/K562/ENCFF333TAT-peak.bed.gz"
+    datasets = [
+        ["HCT116", "ENCFF624HRW.bigWig", "ENCFF296ZZB.bed"],
+        ["A549_RGS", "ENCFF399KCR.bigWig", "ENCFF899OMR.bed"],
+        ["WTC11", "ENCFF123YPY.bigWig", "ENCFF321VDH.bed"],
+        ["GM23338", "ENCFF234AYB.bigWig", "ENCFF567ZCX.bed"],
+        ["HG03432", "ENCFF993BIL.bigWig", "ENCFF831FGS.bed"],
+        ["MCF-7", "ENCFF976UNK.bigWig", "ENCFF821OEF.bed"],
+        ["PC-3", "ENCFF145UAD.bigWig", "ENCFF811MOZ.bed"],
+        ["Panc1", "ENCFF794CNJ.bigWig", "ENCFF182SSP.bed"],
+        ["RWPE2", "ENCFF881UWW.bigWig", "ENCFF729MMJ.bed"],
+        ["GM12878", "ENCFF667MDI.bigWig", "ENCFF748UZH.bed"],
+        ["HEPG2_GJU", "ENCFF262URW.bigWig", "ENCFF439EIO.bed"],
+        ["K562", "ENCFF357GNC.bigWig", "ENCFF333TAT.bed"],
+        ["IMR90", "ENCFF770EAV.bigWig", "ENCFF243NTP.bed"]
+    ]
 
-    signal_file_3 =  "data/HepG2/ENCFF262URW-signal.bigWig"
-    peak_file_3 = "data/HepG2/ENCFF439EIO-peak.bed.gz"
+    print(len(datasets))
+    signal_files = [f"{leomed_path}/{dataset[0]}.bigWig" for dataset in datasets]
+    signal_files[0] = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/HCT116.bigwig"
+    peak_files = [f"{leomed_path}/{dataset[0]}.bed" for dataset in datasets]
 
-    signal_file_4 =  "data/IMR90/ENCFF770EAV-signal.bigWig"
-    peak_file_4 = "data/IMR90/ENCFF243NTP-peak.bed.gz"
+    print(signal_files, peak_files)
     
+
     genome = "data/hg38.fa"
     blacklist_file = ["data/basenji_blacklist.bed", "data/example_snv.vcf"]
     unmap_file = "data/basenji_unmappable.bed"
@@ -35,7 +48,7 @@ def main():
 
     # Model parameters
     model_name = "convnext_dcnn"
-    experiment_name = "all4"
+    experiment_name = "allCellLines"
 
     # Training parameters
     test_chroms = [1, 11, 20, 13]
@@ -46,7 +59,7 @@ def main():
     # Create the training and validation datasets
     print("create the dataset")
     train_comb, val_comb = asap.training_datasets(
-        signal_file=[signal_file_1, signal_file_2, signal_file_3, signal_file_4],
+        signal_file=signal_files,
         genome=genome,
         train_chroms=train_chroms,
         val_chroms=val_chroms,
@@ -62,7 +75,7 @@ def main():
     asap.train_multiheaded_model(
         experiment_name=experiment_name,
         model=model_name,
-        num_heads=4,
+        num_heads=len(signal_files),
         train_dataset=train_comb,
         val_dataset=val_comb,
         logs_dir=logs_dir,
@@ -73,101 +86,40 @@ def main():
     print("Create eval ds")
     print()
 
+    peak = []
+    for i in range(len(signal_files)):
+        print("Evaluating ", datasets[i][0])
+        peak.append(asap.peak_dataset(
+                signal_file=signal_files[i],
+                peak_file=peak_files[i],
+                genome=genome,
+                chroms=test_chroms,
+                generated=generated,
+                blacklist_file=blacklist_file,
+                unmap_file=unmap_file,
+            )
+        )
 
-    peak1 = asap.peak_dataset(
-        signal_file=signal_file_1,
-        peak_file=peak_file_1,
-        genome=genome,
-        chroms=test_chroms,
-        generated=generated,
-        blacklist_file=blacklist_file,
-        unmap_file=unmap_file,
-    )
-    peak2 = asap.peak_dataset(
-        signal_file=signal_file_2,
-        peak_file=peak_file_2,
-        genome=genome,
-        chroms=test_chroms,
-        generated=generated,
-        blacklist_file=blacklist_file,
-        unmap_file=unmap_file,
-    )
-    peak3 = asap.peak_dataset(
-        signal_file=signal_file_3,
-        peak_file=peak_file_3,
-        genome=genome,
-        chroms=test_chroms,
-        generated=generated,
-        blacklist_file=blacklist_file,
-        unmap_file=unmap_file,
-    )
-    peak4 = asap.peak_dataset(
-        signal_file=signal_file_4,
-        peak_file=peak_file_4,
-        genome=genome,
-        chroms=test_chroms,
-        generated=generated,
-        blacklist_file=blacklist_file,
-        unmap_file=unmap_file,
-    )
-
-    # Evaluate the model
-    peak_scores_head1 = asap.eval_multihead_model(
-        experiment_name=experiment_name,
-        model=model_name,
-        eval_dataset=peak1,
-        logs_dir=logs_dir,
-        num_heads=4,
-        target_head=0,
-    )
-    print("Peak scores head1:", peak_scores_head1)
-    print()
-    print()
-
-
-    peak_scores_head2 = asap.eval_multihead_model(
-        experiment_name=experiment_name,
-        model=model_name,
-        eval_dataset=peak2,
-        logs_dir=logs_dir,
-        num_heads=4,
-        target_head=1,
-    )
-    print("Peak scores head2:", peak_scores_head2)
-    print()
-    print()
-
-    peak_scores_head3 = asap.eval_multihead_model(
-        experiment_name=experiment_name,
-        model=model_name,
-        eval_dataset=peak3,
-        logs_dir=logs_dir,
-        num_heads=4,
-        target_head=2,
-    )
-    print("Peak scores head3:", peak_scores_head3)
-    print()
-    print()
-
-    peak_scores_head4 = asap.eval_multihead_model(
-        experiment_name=experiment_name,
-        model=model_name,
-        eval_dataset=peak4,
-        logs_dir=logs_dir,
-        num_heads=4,
-        target_head=3,
-    )
-    print("Peak scores head4:", peak_scores_head4)
-    print()
-    print()
+        # Evaluate the model
+        peak_scores_head = asap.eval_multihead_model(
+            experiment_name=experiment_name,
+            model=model_name,
+            eval_dataset=peak[i],
+            logs_dir=logs_dir,
+            num_heads=len(signal_files),
+            target_head=i,
+        )
+        print(f"Peak scores head {i}:", peak_scores_head)
+        print()
+        print()
 
 
     peak_scores_bad = asap.eval_multihead_model(
         experiment_name=experiment_name,
         model=model_name,
-        eval_dataset=peak1,
+        eval_dataset=peak,
         logs_dir=logs_dir,
-        num_heads=4,
+        num_heads=len(signal_files),
         target_head=1,
     )
     print("Peak scores bad:", peak_scores_bad)
@@ -192,3 +144,8 @@ if __name__ == "__main__":
 
     # bed (blacklist): chr1	10468 11447 
     #     (unmapabble region): if 65% overlap, remove 2046 window
+
+
+# send means for 2 and 4
+# Train 13 to validate
+# Do Linear Probing On Primary cells for the 13 cells , compare to Alan?
