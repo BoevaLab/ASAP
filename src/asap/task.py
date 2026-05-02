@@ -75,7 +75,7 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
 
-def train_new_head(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False):
+def train_new_head(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
     '''
     Evaluate the model on the given dataset.
     Args:
@@ -109,6 +109,7 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
         logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
         linear_probe=True,
+        num_heads=num_heads,
     )
 
     # train the new head based on the previous model
@@ -116,22 +117,23 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
     checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / base_experiment_name / 'checkpoint.pth'
     trainer.load_weights(checkpoint_path)
 
-     # replace head
-    in_features = trainer.model.core.linear_out.in_features
-    out_features = trainer.model.core.linear_out.out_features 
-    trainer.model.core.linear_out = nn.Linear(in_features, out_features)
+    # add new head
+    in_features = trainer.model.core.heads[0].in_features
+    out_features = trainer.model.core.heads[0].out_features
+    new_head = nn.Linear(in_features, out_features)
+    trainer.model.core.heads.append(new_head)
 
     # freeze everything
     for param in trainer.model.parameters():
         param.requires_grad = False
 
     # unfreeze head
-    for param in trainer.model.core.linear_out.parameters():
+    for param in trainer.model.core.heads[-1].parameters():
         param.requires_grad = True
 
     # set modes such that there is no dropout for the core
     trainer.model.eval()
-    trainer.model.core.linear_out.train()
+    trainer.model.core.heads[-1].train()
 
 
     # Start training

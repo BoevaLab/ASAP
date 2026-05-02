@@ -374,7 +374,7 @@ def _fit(
     ):
 
     if linear_probe:
-        optimizer = configure_adamw(model.core.linear_out, lr=learning_rate)
+        optimizer = configure_adamw(model.core.heads[-1], lr=learning_rate)
     else:
         optimizer = configure_adamw(model, lr=learning_rate)
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
@@ -398,6 +398,7 @@ def _fit(
             scheduler,
             criterion,
             unmap_criterion,
+            linear_probe,
             num_heads)
 
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
@@ -412,7 +413,8 @@ def _fit(
             logger.log({'lr': scheduler.get_last_lr()[0]})
             predictions, true = val_res
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
-            for head in range(num_heads): 
+            start_head = num_heads-1 if linear_probe else 0
+            for head in range(start_head, num_heads): 
                 predictions_head, true_head = predictions[..., head].flatten().numpy(), true[..., head].flatten().numpy()
                 val_log_payload = compute_metrics(
                     predictions_head,
@@ -450,8 +452,12 @@ def _fit(
     print('Completed training!')
 
 
-def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, num_heads=1):
-    model.train()
+def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, linear_probe, num_heads=1):
+    if linear_probe:
+        model.eval()
+        model.core.heads[-1].train() 
+    else:
+        model.train()
 
     train_unmap = unmap_criterion is not None
 

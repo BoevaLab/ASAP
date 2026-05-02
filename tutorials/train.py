@@ -86,6 +86,7 @@ def main():
     print("Create eval ds")
     print()
 
+    # Eval the multihead model
     peak = []
     for i in range(len(signal_files)):
         print("Evaluating ", datasets[i][0])
@@ -125,20 +126,52 @@ def main():
     print("Peak scores bad:", peak_scores_bad)
     print()
 
-    print("Finished")
+    print("Finished evaluating the model")
 
-
+    # linear probing for a new head
     print("training a new head")
+    experiment_name_new_head = f"{experiment_name}-new-head"
     asap.train_new_head(
         base_experiment_name=experiment_name,
-        new_experiment_name=f"{experiment_name}-new-head",
+        new_experiment_name=experiment_name_new_head,
         model=model_name,
         train_dataset=train_lp,
         val_dataset=val_lp,
         logs_dir=logs_dir,
         n_gpus=n_gpus,
-        max_epochs=15,
     )
+
+    # Re-evaluate to make sure the body was not changed
+    for i in range(len(signal_files)):
+        # Evaluate the model
+        peak_scores_head = asap.eval_multihead_model(
+            experiment_name=experiment_name_new_head,
+            model=model_name,
+            eval_dataset=peak[i],
+            logs_dir=logs_dir,
+            num_heads=len(signal_files)+1,
+            target_head=i,
+        )
+        print(f"Peak scores head {i}:", peak_scores_head)
+
+    peak_new_head = asap.peak_dataset(
+                signal_file=signal_file_new_head,
+                peak_file=peak_file_new_head,
+                genome=genome,
+                chroms=test_chroms,
+                generated=generated,
+                blacklist_file=blacklist_file,
+                unmap_file=unmap_file,
+            )
+    peak_scores_last_head = asap.eval_multihead_model(
+        experiment_name=experiment_name_new_head,
+        model=model_name,
+        eval_dataset=peak_new_head,
+        logs_dir=logs_dir,
+        num_heads=len(signal_files)+1,
+        target_head=len(signal_files),
+    )
+    print(f"Peak scores new head {i}:", peak_scores_last_head)
 
 if __name__ == "__main__":
     print("hi")
