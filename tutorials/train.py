@@ -17,7 +17,7 @@ def main():
     leomed_path = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw"
 
     datasets = [
-        ["HCT116", "ENCFF624HRW.bigWig", "ENCFF296ZZB.bed"],
+        ["HCT116", "ENCFF624HRW.bigWig", "ENCFF296ZZB.bed"], # missing
         ["A549_RGS", "ENCFF399KCR.bigWig", "ENCFF899OMR.bed"],
         ["WTC11", "ENCFF123YPY.bigWig", "ENCFF321VDH.bed"],
         ["GM23338", "ENCFF234AYB.bigWig", "ENCFF567ZCX.bed"],
@@ -26,9 +26,9 @@ def main():
         ["PC-3", "ENCFF145UAD.bigWig", "ENCFF811MOZ.bed"],
         ["Panc1", "ENCFF794CNJ.bigWig", "ENCFF182SSP.bed"],
         ["RWPE2", "ENCFF881UWW.bigWig", "ENCFF729MMJ.bed"],
-        ["GM12878", "ENCFF667MDI.bigWig", "ENCFF748UZH.bed"],
+        ["GM12878_XSC", "ENCFF667MDI.bigWig", "ENCFF748UZH.bed"], # missing, but I have run this
         ["HEPG2_GJU", "ENCFF262URW.bigWig", "ENCFF439EIO.bed"],
-        ["K562", "ENCFF357GNC.bigWig", "ENCFF333TAT.bed"],
+        ["K562_FGK", "ENCFF357GNC.bigWig", "ENCFF333TAT.bed"],
         ["IMR90", "ENCFF770EAV.bigWig", "ENCFF243NTP.bed"]
     ]
 
@@ -48,13 +48,13 @@ def main():
 
     # Model parameters
     model_name = "convnext_dcnn"
-    experiment_name = "allCellLines"
+    experiment_name = "allCellLines13_1gpu"
 
     # Training parameters
     test_chroms = [1, 11, 20, 13]
     train_chroms  = [2, 10, 14, 19, 21]
     val_chroms = [x for x in range(1, 23) if x not in test_chroms and x not in train_chroms]
-    n_gpus = 2
+    n_gpus = 1
 
     # Create the training and validation datasets
     print("create the dataset")
@@ -80,6 +80,7 @@ def main():
         val_dataset=val_comb,
         logs_dir=logs_dir,
         n_gpus=n_gpus,
+        batch_size=32
     )
 
     print("Training done.")
@@ -113,11 +114,11 @@ def main():
         print()
         print()
 
-
+    print("Peak scores bad")
     peak_scores_bad = asap.eval_multihead_model(
         experiment_name=experiment_name,
         model=model_name,
-        eval_dataset=peak,
+        eval_dataset=peak[0],
         logs_dir=logs_dir,
         num_heads=len(signal_files),
         target_head=1,
