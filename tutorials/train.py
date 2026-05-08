@@ -26,9 +26,9 @@ def main():
         ["PC-3", "ENCFF145UAD.bigWig", "ENCFF811MOZ.bed"],
         ["Panc1", "ENCFF794CNJ.bigWig", "ENCFF182SSP.bed"],
         ["RWPE2", "ENCFF881UWW.bigWig", "ENCFF729MMJ.bed"],
-        ["GM12878", "ENCFF667MDI.bigWig", "ENCFF748UZH.bed"],
+        ["GM12878_XSC", "ENCFF667MDI.bigWig", "ENCFF748UZH.bed"],
         ["HEPG2_GJU", "ENCFF262URW.bigWig", "ENCFF439EIO.bed"],
-        ["K562", "ENCFF357GNC.bigWig", "ENCFF333TAT.bed"],
+        ["K562_FGK", "ENCFF357GNC.bigWig", "ENCFF333TAT.bed"],
         ["IMR90", "ENCFF770EAV.bigWig", "ENCFF243NTP.bed"]
     ]
 
@@ -48,18 +48,24 @@ def main():
 
     # Model parameters
     model_name = "convnext_dcnn"
-    experiment_name = "allCellLines"
+    experiment_name = "allCellLines13_1gpu"
 
     # Training parameters
     test_chroms = [1, 11, 20, 13]
     train_chroms  = [2, 10, 14, 19, 21]
     val_chroms = [x for x in range(1, 23) if x not in test_chroms and x not in train_chroms]
-    n_gpus = 2
+    n_gpus = 1
 
-    # Create the training and validation datasets
-    print("create the dataset")
-    train_comb, val_comb = asap.training_datasets(
-        signal_file=signal_files,
+   
+    # linear probing for a new head
+    print("create a new dataset")
+    experiment_name_new_head = f"{experiment_name}-new-head"
+    
+    signal_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/T_cell_f_21.bigWig"
+    peak_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw./T_cell_f_21.bed"
+
+    train_lp, val_lp = asap.training_datasets(
+        signal_file=signal_file_new_head,
         genome=genome,
         train_chroms=train_chroms,
         val_chroms=val_chroms,
@@ -68,69 +74,7 @@ def main():
         unmap_file=unmap_file,
     )
 
-    
-    print("start to train!!!\n")
-
-    # Train the model
-    asap.train_multiheaded_model(
-        experiment_name=experiment_name,
-        model=model_name,
-        num_heads=len(signal_files),
-        train_dataset=train_comb,
-        val_dataset=val_comb,
-        logs_dir=logs_dir,
-        n_gpus=n_gpus,
-    )
-
-    print("Training done.")
-    print("Create eval ds")
-    print()
-
-    # Eval the multihead model
-    peak = []
-    for i in range(len(signal_files)):
-        print("Evaluating ", datasets[i][0])
-        peak.append(asap.peak_dataset(
-                signal_file=signal_files[i],
-                peak_file=peak_files[i],
-                genome=genome,
-                chroms=test_chroms,
-                generated=generated,
-                blacklist_file=blacklist_file,
-                unmap_file=unmap_file,
-            )
-        )
-
-        # Evaluate the model
-        peak_scores_head = asap.eval_multihead_model(
-            experiment_name=experiment_name,
-            model=model_name,
-            eval_dataset=peak[i],
-            logs_dir=logs_dir,
-            num_heads=len(signal_files),
-            target_head=i,
-        )
-        print(f"Peak scores head {i}:", peak_scores_head)
-        print()
-        print()
-
-
-    peak_scores_bad = asap.eval_multihead_model(
-        experiment_name=experiment_name,
-        model=model_name,
-        eval_dataset=peak,
-        logs_dir=logs_dir,
-        num_heads=len(signal_files),
-        target_head=1,
-    )
-    print("Peak scores bad:", peak_scores_bad)
-    print()
-
-    print("Finished evaluating the model")
-
-    # linear probing for a new head
     print("training a new head")
-    experiment_name_new_head = f"{experiment_name}-new-head"
     asap.train_new_head(
         base_experiment_name=experiment_name,
         new_experiment_name=experiment_name_new_head,
@@ -139,21 +83,10 @@ def main():
         val_dataset=val_lp,
         logs_dir=logs_dir,
         n_gpus=n_gpus,
+        num_original_heads=len(datasets)
     )
 
-    # Re-evaluate to make sure the body was not changed
-    for i in range(len(signal_files)):
-        # Evaluate the model
-        peak_scores_head = asap.eval_multihead_model(
-            experiment_name=experiment_name_new_head,
-            model=model_name,
-            eval_dataset=peak[i],
-            logs_dir=logs_dir,
-            num_heads=len(signal_files)+1,
-            target_head=i,
-        )
-        print(f"Peak scores head {i}:", peak_scores_head)
-
+    print("Create new eval dataset")
     peak_new_head = asap.peak_dataset(
                 signal_file=signal_file_new_head,
                 peak_file=peak_file_new_head,
@@ -163,6 +96,8 @@ def main():
                 blacklist_file=blacklist_file,
                 unmap_file=unmap_file,
             )
+    
+    print("Eval new head")
     peak_scores_last_head = asap.eval_multihead_model(
         experiment_name=experiment_name_new_head,
         model=model_name,
@@ -172,6 +107,30 @@ def main():
         target_head=len(signal_files),
     )
     print(f"Peak scores new head {i}:", peak_scores_last_head)
+
+    # Re-evaluate to make sure the body was not modified
+    for i in range(len(signal_files)):
+        print("Reevaluating ", datasets[i][0])
+        peak_dataset = asap.peak_dataset(
+                signal_file=signal_files[i],
+                peak_file=peak_files[i],
+                genome=genome,
+                chroms=test_chroms,
+                generated=generated,
+                blacklist_file=blacklist_file,
+                unmap_file=unmap_file,
+            )
+        peak_scores_head = asap.eval_multihead_model(
+            experiment_name=experiment_name_new_head,
+            model=model_name,
+            eval_dataset=peak_dataset,
+            logs_dir=logs_dir,
+            num_heads=len(signal_files)+1,
+            target_head=i,
+        )
+        print(f"Peak scores head {i}:", peak_scores_head)
+
+    
 
 if __name__ == "__main__":
     print("hi")

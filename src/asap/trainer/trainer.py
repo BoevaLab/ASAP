@@ -455,7 +455,8 @@ def _fit(
 def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, linear_probe, num_heads=1):
     if linear_probe:
         model.eval()
-        model.core.heads[-1].train() 
+        model.core.heads[-1].train()
+        num_heads = num_heads+1
     else:
         model.train()
 

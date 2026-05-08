@@ -75,7 +75,7 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
 
-def train_new_head(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
+def train_new_head(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_original_heads: int=1):
     '''
     Evaluate the model on the given dataset.
     Args:
@@ -97,7 +97,7 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
         print(f"Requested {n_gpus} GPUs, but only {torch.cuda.device_count()} are available. Using {n_gpus} GPUs instead.")
 
     # Initialize the model
-    model = _get_model(model, use_map=use_map)
+    model = _get_model(model, use_map=use_map, num_heads=num_original_heads)
 
     # Initialize the trainer with the model and datasets
     trainer = Trainer(
@@ -109,7 +109,7 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
         logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
         linear_probe=True,
-        num_heads=num_heads,
+        num_heads=num_original_heads,
     )
 
     # train the new head based on the previous model
