@@ -153,3 +153,8 @@ if __name__ == "__main__":
 # send means for 2 and 4
 # Train 13 to validate
 # Do Linear Probing On Primary cells for the 13 cells , compare to Alan?
+
+
+# send means for 2 and 4
+# Train 13 to validate
+# Do Linear Probing On Primary cells for the 13 cells , compare to Alan?
