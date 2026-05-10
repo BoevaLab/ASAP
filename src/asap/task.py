@@ -97,7 +97,19 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
         print(f"Requested {n_gpus} GPUs, but only {torch.cuda.device_count()} are available. Using {n_gpus} GPUs instead.")
 
     # Initialize the model
-    model = _get_model(model, use_map=use_map, num_heads=num_original_heads)
+    model = _get_model(model, use_map=use_map, num_heads=num_original_heads+1)
+
+    # freeze everything
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # unfreeze head
+    for param in model.core.heads[-1].parameters():
+        param.requires_grad = True
+
+    # set modes such that there is no dropout for the core
+    model.eval()
+    model.core.heads[-1].train()
 
     # Initialize the trainer with the model and datasets
     trainer = Trainer(
@@ -112,28 +124,12 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
         num_heads=num_original_heads+1,
     )
 
-    # train the new head based on the previous model
     print(f'Loading best model weights from {base_experiment_name}')
     checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / base_experiment_name / 'checkpoint.pth'
-    trainer.load_weights(checkpoint_path)
 
-    # add new head
-    in_features = trainer.model.core.heads[0].in_features
-    out_features = trainer.model.core.heads[0].out_features
-    new_head = nn.Linear(in_features, out_features)
-    trainer.model.core.heads.append(new_head)
-
-    # freeze everything
-    for param in trainer.model.parameters():
-        param.requires_grad = False
-
-    # unfreeze head
-    for param in trainer.model.core.heads[-1].parameters():
-        param.requires_grad = True
-
-    # set modes such that there is no dropout for the core
-    trainer.model.eval()
-    trainer.model.core.heads[-1].train()
+    # Load the file manually to use strict=False
+    checkpoint = torch.load(checkpoint_path, map_location='cpu') # Load to CPU first to avoid OOM
+    trainer.model.load_state_dict(checkpoint, strict=False)
 
 
     # Start training

@@ -374,8 +374,7 @@ def _fit(
     ):
 
     if linear_probe:
-        base_model = model.module if hasattr(model, "module") else model
-        optimizer = configure_adamw(base_model.core.heads[-1], lr=learning_rate)
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
     else:
         optimizer = configure_adamw(model, lr=learning_rate)
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
@@ -493,8 +492,10 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
             output = model(X_i)
             loss = 0
             for head in range(start_head, num_heads):
-                loss += criterion(output[head], y_i[..., head:head+1])
-
+                if linear_probe:
+                    loss += criterion(output[head], y_i)
+                else:
+                    loss += criterion(output[head], y_i[..., head:head+1])
         loss.backward()
         optimizer.step()
         scheduler.step()
@@ -535,8 +536,6 @@ def _predict(model, gen, rank, ddp_enabled):
         for i, (X_i, _, y_i) in enumerate(gen):
             X_i = X_i.to(rank)
             y_i = y_i.to(rank)
-            if i == 2040:
-                print(X_i[0,1005:-1005,:])
 
             with torch.no_grad():
                 p_i = model(X_i)
