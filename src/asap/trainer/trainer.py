@@ -400,6 +400,7 @@ def _fit(
         if not ddp_enabled or rank == 0:
             logger.log({'lr': scheduler.get_last_lr()[0]})
             predictions, true = val_res
+            del val_res 
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
             for head in range(num_heads): 
                 predictions_head, true_head = predictions[..., head].flatten().numpy(), true[..., head].flatten().numpy()
@@ -505,33 +506,34 @@ def _predict(model, gen, rank, ddp_enabled):
     predictions = []
     true = []
 
-    for i, (X_i, _, y_i) in enumerate(gen):
-        X_i = X_i.to(rank)
-        y_i = y_i.to(rank)
-        if i == 2040:
-            print(X_i[0,1005:-1005,:])
+    with torch.no_grad():
+        for i, (X_i, _, y_i) in enumerate(gen):
+            X_i = X_i.to(rank)
+            y_i = y_i.to(rank)
+            if i == 2040:
+                print(X_i[0,1005:-1005,:])
 
-        with torch.no_grad():
-            p_i = model(X_i)
-            p_i = torch.cat(p_i, dim=-1)
+            with torch.no_grad():
+                p_i = model(X_i)
+                p_i = torch.cat(p_i, dim=-1)
 
-        if margin_size is not None:
-            y_i.flatten()
-            p_i = p_i[..., trim:-trim, :]
-        
-        y_i, p_i = y_i.contiguous(), p_i.contiguous()
-        if ddp_enabled:
-            all_predictions = [torch.zeros_like(y_i) for _ in range(dist.get_world_size())]
-            all_true = [torch.zeros_like(y_i) for _ in range(dist.get_world_size())]
-            dist.all_gather(all_predictions, p_i)
-            dist.all_gather(all_true, y_i)
+            if margin_size is not None:
+                y_i.flatten()
+                p_i = p_i[..., trim:-trim, :]
+            
+            y_i, p_i = y_i.contiguous(), p_i.contiguous()
+            if ddp_enabled:
+                all_predictions = [torch.zeros_like(y_i) for _ in range(dist.get_world_size())]
+                all_true = [torch.zeros_like(y_i) for _ in range(dist.get_world_size())]
+                dist.all_gather(all_predictions, p_i)
+                dist.all_gather(all_true, y_i)
 
-            if rank == 0:
-                predictions.extend(all_predictions)
-                true.extend(all_true)
-        else:
-            predictions.append(p_i)
-            true.append(y_i)
+                if rank == 0:
+                    predictions.extend([t.detach().cpu() for t in all_predictions])
+                    true.extend([t.detach().cpu() for t in all_true])
+            else:
+                predictions.append(p_i.detach().cpu())
+                true.append(y_i.detach().cpu())
 
     print(i)
     return predictions, true
