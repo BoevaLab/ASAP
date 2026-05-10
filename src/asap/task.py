@@ -215,6 +215,10 @@ def train_multiheaded_model_continually(
         print('Loading model weights from previous step.')
         model_tmp.load_state_dict(trainer.model.state_dict(), strict=False) # strict=False should allow loading when number of heads changes 
         model = model_tmp
+
+        # Do this? 
+        # del model_tmp 
+
         print('Successfully loaded model weights.')
 
         # Initialize new trainer 

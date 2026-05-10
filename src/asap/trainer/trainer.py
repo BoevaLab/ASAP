@@ -372,7 +372,11 @@ def _fit(
         n_per_epoch=len(train_gen),
         gamma=0.9
     )
-    early_stopping_after_no_improvement = 5 # Set to 0 for no early stopping
+
+    # Disabled early stopping temporarily because it messes up CL. Need to figure out how to 
+    # remove the bug which causes the count of no-improvement epochs to carry over between 
+    # CL steps. 
+    early_stopping_after_no_improvement = 0 # Set to 0 for no early stopping
     no_improvement_for = 0
     best_val_score = -1
 
