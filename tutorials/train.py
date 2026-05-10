@@ -83,7 +83,8 @@ def main():
         val_dataset=val_lp,
         logs_dir=logs_dir,
         n_gpus=n_gpus,
-        num_original_heads=len(datasets)
+        num_original_heads=len(datasets),
+        max_epochs=2
     )
 
     print("Create new eval dataset")

@@ -374,7 +374,8 @@ def _fit(
     ):
 
     if linear_probe:
-        optimizer = configure_adamw(model.core.heads[-1], lr=learning_rate)
+        base_model = model.module if hasattr(model, "module") else model
+        optimizer = configure_adamw(base_model.core.heads[-1], lr=learning_rate)
     else:
         optimizer = configure_adamw(model, lr=learning_rate)
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
@@ -416,7 +417,11 @@ def _fit(
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
             start_head = num_heads-1 if linear_probe else 0
             for head in range(start_head, num_heads):
-                predictions_head, true_head = predictions[..., head].flatten().numpy(), true[..., head].flatten().numpy()
+                predictions_head = predictions[head].flatten().numpy(),
+                if linear_probe:
+                    true_head =  true[..., 0].flatten().numpy()
+                else:
+                    true_head =  true[..., head].flatten().numpy()
                 val_log_payload = compute_metrics(
                     predictions_head,
                     true_head,
@@ -457,7 +462,6 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
     if linear_probe:
         model.eval()
         model.core.heads[-1].train()
-        num_heads = num_heads+1
     else:
         model.train()
 

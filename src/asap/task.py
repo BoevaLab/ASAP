@@ -109,7 +109,7 @@ def train_new_head(base_experiment_name: str, new_experiment_name: str, model: s
         logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
         linear_probe=True,
-        num_heads=num_original_heads,
+        num_heads=num_original_heads+1,
     )
 
     # train the new head based on the previous model
