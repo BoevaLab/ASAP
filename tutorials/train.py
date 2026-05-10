@@ -62,7 +62,7 @@ def main():
     experiment_name_new_head = f"{experiment_name}-new-head"
     
     signal_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/T_cell_f_21.bigWig"
-    peak_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw./T_cell_f_21.bed"
+    peak_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/T_cell_f_21.bed"
 
     train_lp, val_lp = asap.training_datasets(
         signal_file=signal_file_new_head,
@@ -107,7 +107,7 @@ def main():
         num_heads=len(signal_files)+1,
         target_head=len(signal_files),
     )
-    print(f"Peak scores new head {i}:", peak_scores_last_head)
+    print(f"Peak scores new head:", peak_scores_last_head)
 
     # Re-evaluate to make sure the body was not modified
     for i in range(len(signal_files)):

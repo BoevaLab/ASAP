@@ -417,7 +417,7 @@ def _fit(
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
             start_head = num_heads-1 if linear_probe else 0
             for head in range(start_head, num_heads):
-                predictions_head = predictions[head].flatten().numpy(),
+                predictions_head = predictions[..., head].flatten().numpy()
                 if linear_probe:
                     true_head =  true[..., 0].flatten().numpy()
                 else:
@@ -470,6 +470,8 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
     if rank == 0:
         # pbar if on rank 0
         train_gen = tqdm(train_gen)
+    
+    start_head = num_heads-1 if linear_probe else 0
 
     for X_i, m_i, y_i in train_gen:
         X_i = X_i.to(rank)
@@ -482,14 +484,15 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
             m_len = output_m_i.shape[1]
             unmap_loss = unmap_criterion(output_m_i, m_i[:, :m_len])
 
+            # only use the last head
             base_loss = 0
-            for head in range(num_heads):
+            for head in range(start_head, num_heads):
                 base_loss += criterion(output[head], y_i[..., head:head+1])
             loss = base_loss + unmap_loss
         else:
             output = model(X_i)
             loss = 0
-            for head in range(num_heads):
+            for head in range(start_head, num_heads):
                 loss += criterion(output[head], y_i[..., head:head+1])
 
         loss.backward()
