@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable, Union, Tuple, Dict
 import os
 
@@ -301,7 +301,7 @@ def setup_ddp(rank, world_size, model, port):
         backend="nccl",
         rank=rank,
         world_size=world_size,
-        timeout=datetime.timedelta(minutes=120), # Attempted fix of sync issues in multihead CL
+        timeout=timedelta(minutes=120), # Attempted fix of sync issues in multihead CL
     )
     torch.cuda.set_device(rank)
     model.to(rank)
