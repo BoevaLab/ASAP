@@ -388,6 +388,7 @@ def _fit(
     best_val_score = -1
 
     for epoch in range(nr_epochs):
+        print(f'\nEpoch {epoch}: start training at {datetime.now()}')
         if ddp_enabled:
             train_gen.sampler.set_epoch(epoch)
         train_log_payload = _train_epoch(
@@ -400,6 +401,7 @@ def _fit(
             unmap_criterion,
             linear_probe,
             num_heads)
+        print(f'Epoch {epoch}: stop training at {datetime.now()}')
 
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
             logger.log(train_log_payload, step=epoch)

@@ -56,13 +56,15 @@ def main():
     val_chroms = [x for x in range(1, 23) if x not in test_chroms and x not in train_chroms]
     n_gpus = 1
 
+    # change test for val for the next
+
    
     # linear probing for a new head
     print("create a new dataset")
-    experiment_name_new_head = f"{experiment_name}-new-head"
+    experiment_name_new_head = f"{experiment_name}-linProbe-a_B_cell_m_22_treated"
     
-    signal_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/T_cell_f_21.bigWig"
-    peak_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/T_cell_f_21.bed"
+    signal_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/a_B_cell_m_22_treated.bigWig"
+    peak_file_new_head = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/a_B_cell_m_22_treated.bed"
 
     train_lp, val_lp = asap.training_datasets(
         signal_file=signal_file_new_head,
@@ -109,27 +111,27 @@ def main():
     )
     print(f"Peak scores new head:", peak_scores_last_head)
 
-    # Re-evaluate to make sure the body was not modified
-    for i in range(len(signal_files)):
-        print("Reevaluating ", datasets[i][0])
-        peak_dataset = asap.peak_dataset(
-                signal_file=signal_files[i],
-                peak_file=peak_files[i],
-                genome=genome,
-                chroms=test_chroms,
-                generated=generated,
-                blacklist_file=blacklist_file,
-                unmap_file=unmap_file,
-            )
-        peak_scores_head = asap.eval_multihead_model(
-            experiment_name=experiment_name_new_head,
-            model=model_name,
-            eval_dataset=peak_dataset,
-            logs_dir=logs_dir,
-            num_heads=len(signal_files)+1,
-            target_head=i,
-        )
-        print(f"Peak scores head {i}:", peak_scores_head)
+    # # Re-evaluate to make sure the body was not modified
+    # for i in range(len(signal_files)):
+    #     print("Reevaluating ", datasets[i][0])
+    #     peak_dataset = asap.peak_dataset(
+    #             signal_file=signal_files[i],
+    #             peak_file=peak_files[i],
+    #             genome=genome,
+    #             chroms=test_chroms,
+    #             generated=generated,
+    #             blacklist_file=blacklist_file,
+    #             unmap_file=unmap_file,
+    #         )
+    #     peak_scores_head = asap.eval_multihead_model(
+    #         experiment_name=experiment_name_new_head,
+    #         model=model_name,
+    #         eval_dataset=peak_dataset,
+    #         logs_dir=logs_dir,
+    #         num_heads=len(signal_files)+1,
+    #         target_head=i,
+    #     )
+    #     print(f"Peak scores head {i}:", peak_scores_head)
 
     
 

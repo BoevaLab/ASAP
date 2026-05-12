@@ -1,0 +1,170 @@
+import sys
+import os
+import numpy as np
+import pyBigWig
+
+sys.path.append(os.path.abspath("src"))
+
+import asap
+
+# The below code is a complete script that sets up the training of a model using the ASAP library. 
+# It includes data paths, model parameters, training parameters, and the creation of training and validation datasets. 
+# The script then trains the model using the specified parameters.
+
+
+def main():
+
+    leomed_path = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw"
+
+    cell_lines = [
+        ["HCT116", "ENCFF624HRW.bigWig", "ENCFF296ZZB.bed"],
+        ["A549_RGS", "ENCFF399KCR.bigWig", "ENCFF899OMR.bed"],
+        ["WTC11", "ENCFF123YPY.bigWig", "ENCFF321VDH.bed"],
+        ["GM23338", "ENCFF234AYB.bigWig", "ENCFF567ZCX.bed"],
+        ["HG03432", "ENCFF993BIL.bigWig", "ENCFF831FGS.bed"],
+        ["MCF-7", "ENCFF976UNK.bigWig", "ENCFF821OEF.bed"],
+        ["PC-3", "ENCFF145UAD.bigWig", "ENCFF811MOZ.bed"],
+        ["Panc1", "ENCFF794CNJ.bigWig", "ENCFF182SSP.bed"],
+        ["RWPE2", "ENCFF881UWW.bigWig", "ENCFF729MMJ.bed"],
+        ["GM12878_XSC", "ENCFF667MDI.bigWig", "ENCFF748UZH.bed"],
+        ["HEPG2_GJU", "ENCFF262URW.bigWig", "ENCFF439EIO.bed"],
+        ["K562_FGK", "ENCFF357GNC.bigWig", "ENCFF333TAT.bed"],
+        ["IMR90", "ENCFF770EAV.bigWig", "ENCFF243NTP.bed"]
+    ]
+
+    signal_files_cell_lines = [f"{leomed_path}/{dataset[0]}.bigWig" for dataset in cell_lines]
+    signal_files_cell_lines[0] = "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/HCT116.bigwig"
+    peak_files_cell_lines = [f"{leomed_path}/{dataset[0]}.bed" for dataset in cell_lines]
+
+    signal_files_primary = ["/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/T_cell_f_21.bigWig",
+                            "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/nk_cell_f_41.bigWig",
+                            "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/t_helper_17_m_50.bigWig",
+                            "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/td_CD8_ab_T_m_30.bigWig",
+                            "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/a_B_cell_m_22_treated.bigWig",
+                            "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/foreski_ker_m.bigWig"]
+    peak_files_primary = ["/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/T_cell_f_21.bed",
+                          "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/nk_cell_f_41.bed",
+                          "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/t_helper_17_m_50.bed",
+                          "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/td_CD8_ab_T_m_30.bed",
+                          "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/a_B_cell_m_22_treated.bed",
+                          "/cluster/work/boeva/mindilewitsc/UniversalEPI/data/atac/raw/foreski_ker_m.bed"]
+    signal_files = signal_files_cell_lines + signal_files_primary
+    peak_files = peak_files_cell_lines + peak_files_primary
+
+    genome = "data/hg38.fa"
+    blacklist_file = ["data/basenji_blacklist.bed", "data/example_snv.vcf"]
+    unmap_file = "data/basenji_unmappable.bed"
+    generated = "tmp"
+    logs_dir = "tmp/logs"
+
+    # Model parameters
+    model_name = "convnext_dcnn"
+    experiment_name = "all19"
+
+    # Training parameters
+    val_chroms = [1, 11, 20, 13]
+    train_chroms  = [2, 10, 14, 19, 21]
+    test_chroms = [x for x in range(1, 23) if x not in val_chroms and x not in train_chroms]
+    n_gpus = 1
+
+   
+    # Create the training and validation datasets
+    print("create the dataset")
+    train_comb, val_comb = asap.training_datasets(
+        signal_file=signal_files,
+        genome=genome,
+        train_chroms=train_chroms,
+        val_chroms=val_chroms,
+        generated=generated,
+        blacklist_file=blacklist_file,
+        unmap_file=unmap_file,
+    )
+
+    
+    print("start to train!!!\n")
+
+    # Train the model
+    asap.train_multiheaded_model(
+        experiment_name=experiment_name,
+        model=model_name,
+        num_heads=len(signal_files),
+        train_dataset=train_comb,
+        val_dataset=val_comb,
+        logs_dir=logs_dir,
+        n_gpus=n_gpus,
+    )
+
+    print("Training done.")
+    print("Create eval ds")
+    print()
+
+    peak = []
+    for i in range(len(signal_files)):
+        print("Evaluating ", peak_files[i])
+        peak.append(asap.peak_dataset(
+                signal_file=signal_files[i],
+                peak_file=peak_files[i],
+                genome=genome,
+                chroms=test_chroms,
+                generated=generated,
+                blacklist_file=blacklist_file,
+                unmap_file=unmap_file,
+            )
+        )
+
+        # Evaluate the model
+        peak_scores_head = asap.eval_multihead_model(
+            experiment_name=experiment_name,
+            model=model_name,
+            eval_dataset=peak[i],
+            logs_dir=logs_dir,
+            num_heads=len(signal_files),
+            target_head=i,
+        )
+        print(f"Peak scores head {i}:", peak_scores_head)
+        print()
+        print()
+
+    print("Peak scores bad")
+    peak_scores_bad = asap.eval_multihead_model(
+        experiment_name=experiment_name,
+        model=model_name,
+        eval_dataset=peak[0],
+        logs_dir=logs_dir,
+        num_heads=len(signal_files),
+        target_head=1,
+    )
+    print("Peak scores bad:", peak_scores_bad)
+    print()
+
+    print("Finished")
+
+
+    
+
+if __name__ == "__main__":
+    print("hi")
+    # sudo mount -a
+    main()
+
+    # bigwig (signl)
+
+    # import pyBigWig
+    # bw = pyBigWig.open(signal_file)
+    # print(bw.values("chr1", 100000, 100100)) [0.1,0.9,...]
+    # print(bw.chroms()) [chr1:463772] {chrom:len}
+
+    # fasta (genome): AGGGCAAAA...
+
+    # bed (blacklist): chr1	10468 11447 
+    #     (unmapabble region): if 65% overlap, remove 2046 window
+
+
+# send means for 2 and 4
+# Train 13 to validate
+# Do Linear Probing On Primary cells for the 13 cells , compare to Alan?
+
+
+# send means for 2 and 4
+# Train 13 to validate
+# Do Linear Probing On Primary cells for the 13 cells , compare to Alan?
