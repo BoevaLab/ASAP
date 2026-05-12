@@ -297,7 +297,12 @@ def setup_ddp(rank, world_size, model, port):
     os.environ['MASTER_PORT'] = f'{port}'
 
     # initialize the process group
-    dist.init_process_group(backend="nccl", rank=rank, world_size=world_size)
+    dist.init_process_group(
+        backend="nccl",
+        rank=rank,
+        world_size=world_size,
+        timeout=datetime.timedelta(minutes=120), # Attempted fix of sync issues in multihead CL
+    )
     torch.cuda.set_device(rank)
     model.to(rank)
     model = DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=False)
