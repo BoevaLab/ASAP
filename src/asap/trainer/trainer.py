@@ -410,6 +410,8 @@ def _fit(
 
         val_res = _predict(model, val_gen, rank, ddp_enabled=ddp_enabled)
 
+        epoch_val_sum = 0.0
+
         # For synchronous loop breaking
         stop_early = torch.zeros(1).to(rank)
 
@@ -432,15 +434,26 @@ def _fit(
                     print(f'\tTrain loss: {train_log_payload["train/loss"]}')
                 print(f'\tVal pearson r: {val_log_payload["val/pearson_r"]}')
                 print('-----------------------------------------')
-                if val_log_payload['val/pearson_r'] > best_val_score:
-                    best_val_score = val_log_payload['val/pearson_r']
-                    logger.save_model(model, filename)
-                    # handle early stopping
-                    no_improvement_for = 0
-                else:
-                    no_improvement_for += 1
-                    if (epoch != nr_epochs -1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
-                        stop_early += 1
+                epoch_val_sum += val_log_payload['val/pearson_r']
+                # if val_log_payload['val/pearson_r'] > best_val_score:
+                #     best_val_score = val_log_payload['val/pearson_r']
+                #     logger.save_model(model, filename)
+                #     # handle early stopping
+                #     no_improvement_for = 0
+                # else:
+                #     no_improvement_for += 1
+                #     if (epoch != nr_epochs -1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
+                #         stop_early += 1
+            # Best mode saving (per epoch not per head)
+            if (epoch_val_sum / num_heads) > best_val_score:
+                best_val_score = epoch_val_sum / num_heads 
+                logger.save_model(model, filename)
+                # TODO handle early stopping 
+                no_improvement_for = 0
+            else: 
+                no_improvement_for += 1 
+                if (epoch != nr_epochs - 1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
+                    stop_early += 1
 
         if ddp_enabled:
             dist.all_reduce(stop_early)
