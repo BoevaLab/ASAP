@@ -385,9 +385,15 @@ def _fit(
     no_improvement_for = 0
     best_val_score = -1
 
+    # Verify that the best_val_score is -1 at the start of each stage of CL 
+    print(f'Starting training with num_heads={num_heads} and best_val_score={best_val_score}.')
+
+
     for epoch in range(nr_epochs):
         if ddp_enabled:
             train_gen.sampler.set_epoch(epoch)
+
+        print(f'Heads {num_heads} - Epoch {epoch} - {datetime.now()}')
         train_log_payload = _train_epoch(
             rank,
             model,
@@ -397,6 +403,7 @@ def _fit(
             criterion,
             unmap_criterion,
             num_heads)
+        print(f'Heads {num_heads} - Epoch {epoch} - {datetime.now()}')
 
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
             logger.log(train_log_payload, step=epoch)
