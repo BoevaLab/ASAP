@@ -24,9 +24,9 @@ def main():
     experiment_name = "a_B_cell_m_22_treated"
 
     # Training parameters
-    val_chroms = [1, 11, 20, 13]
+    test_chroms = [1, 11, 20, 13]
     train_chroms  = [2, 10, 14, 19, 21]
-    test_chroms = [x for x in range(1, 23) if x not in val_chroms and x not in train_chroms]
+    val_chroms = [x for x in range(1, 23) if x not in test_chroms and x not in train_chroms]
     n_gpus = 1
 
     

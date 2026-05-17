@@ -388,7 +388,8 @@ def _fit(
     best_val_score = -1
 
     for epoch in range(nr_epochs):
-        print(f'\nEpoch {epoch}: start training at {datetime.now()}')
+        before = datetime.now()
+        print(f'\nEpoch {epoch}: start training at {before}')
         if ddp_enabled:
             train_gen.sampler.set_epoch(epoch)
         train_log_payload = _train_epoch(
@@ -401,7 +402,9 @@ def _fit(
             unmap_criterion,
             linear_probe,
             num_heads)
-        print(f'Epoch {epoch}: stop training at {datetime.now()}')
+        after = datetime.now()
+        print(f'Epoch {epoch}: stop training at {after}')
+        print(f'Epoch {epoch}: train duration {(after - before).total_seconds()}')
 
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
             logger.log(train_log_payload, step=epoch)
@@ -410,6 +413,8 @@ def _fit(
 
         # For synchronous loop breaking
         stop_early = torch.zeros(1).to(rank)
+
+        epoch_val_sum = 0.0
 
         if not ddp_enabled or rank == 0:
             logger.log({'lr': scheduler.get_last_lr()[0]})
@@ -435,15 +440,16 @@ def _fit(
                     print(f'\tTrain loss: {train_log_payload["train/loss"]}')
                 print(f'\tVal pearson r: {val_log_payload["val/pearson_r"]}')
                 print('-----------------------------------------')
-                if val_log_payload['val/pearson_r'] > best_val_score:
-                    best_val_score = val_log_payload['val/pearson_r']
-                    logger.save_model(model, filename)
-                    # handle early stopping
-                    no_improvement_for = 0
-                else:
-                    no_improvement_for += 1
-                    if (epoch != nr_epochs -1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
-                        stop_early += 1
+                epoch_val_sum += val_log_payload['val/pearson_r']
+            if(epoch_val_sum / (num_heads - start_head)) > best_val_score:
+                best_val_score = val_log_payload['val/pearson_r']
+                logger.save_model(model, filename)
+                # handle early stopping
+                no_improvement_for = 0
+            else:
+                no_improvement_for += 1
+                if (epoch != nr_epochs -1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
+                    stop_early += 1
 
         if ddp_enabled:
             dist.all_reduce(stop_early)
