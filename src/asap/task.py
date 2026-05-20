@@ -121,8 +121,6 @@ def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: L
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
 
-# TODO implement dataset partitioning more smartly 
-# TODO rework the model updates to be smarter
 def train_multiheaded_model_continually(
         experiment_name: str,
         model: str, 
@@ -142,8 +140,8 @@ def train_multiheaded_model_continually(
     Args:
         experiment_name (str): The base name of the experiments. Actual names are {experiment_name}_{num_heads[i]}, with i the current step.
         model (str): The model to train.
-        train_dataset (List[BaseDataset]): The training datasets. # TODO update when dataset partitioning added
-        val_dataset (List[BaseDataset]): The validation datasets. # TODO update when dataset partitioning added
+        train_dataset (List[BaseDataset]): The training dataset. 
+        val_dataset (List[BaseDataset]): The validation dataset. 
         logs_dir (str): The directory to save logs.
         n_gpus (int): The number of GPUs to use for training.
         max_epochs (int): The maximum number of epochs to train (per step).
@@ -183,7 +181,7 @@ def train_multiheaded_model_continually(
         criterion=nn.PoissonNLLLoss(log_input=False),
         unmap_criterion=use_map,
         batch_size=batch_size,
-        logger=TextLogger(logs_dir=logs_dir), # TODO separate log dirs for each step?
+        logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
         num_heads=num_heads[0],
     )
@@ -204,7 +202,6 @@ def train_multiheaded_model_continually(
     for i in range(1, len(num_heads)):
         # print(f'Starting continual training for step {i} with {num_heads[i]} heads.')
 
-        # TODO get the best weights not the latest - CHECK IF WORKS 
         # Initialize the next model with the previous model's weights 
         model_tmp = _get_model(model_type, use_map=use_map, num_heads=num_heads[i])
 
@@ -216,7 +213,7 @@ def train_multiheaded_model_continually(
         model_tmp.load_state_dict(trainer.model.state_dict(), strict=False) # strict=False should allow loading when number of heads changes 
         model = model_tmp
 
-        # Do this? 
+        # TODO Do this? 
         # del model_tmp 
 
         print('Successfully loaded model weights.')
@@ -229,7 +226,7 @@ def train_multiheaded_model_continually(
             criterion=nn.PoissonNLLLoss(log_input=False),
             unmap_criterion=use_map,
             batch_size=batch_size,
-            logger=TextLogger(logs_dir=logs_dir), # TODO separate log dirs for each step?
+            logger=TextLogger(logs_dir=logs_dir), 
             n_gpus=n_gpus,
             num_heads=num_heads[i],
         )
@@ -237,8 +234,8 @@ def train_multiheaded_model_continually(
         # Train the new model 
         print(f'Starting training for the step {i} with {num_heads[i]} heads.')
         trainer.fit(
-            train_dset=train_dataset[i],
-            val_dset=val_dataset[i],
+            train_dset=train_dataset[0],
+            val_dset=val_dataset[0],
             nr_epochs=max_epochs,
             learning_rate=learning_rate,
         )
@@ -246,6 +243,113 @@ def train_multiheaded_model_continually(
 
     print('Finished continually training the model.')
     print(f'Final model is saved as {experiment_name}_{num_heads[-1]} in {logs_dir}.')
+
+
+def extend_multiheaded_model_continually(
+        base_experiment_name: str,
+        new_experiment_name: str,
+        model: str, 
+        train_dataset: List[BaseDataset],
+        val_dataset: List[BaseDataset],
+        logs_dir: str,
+        n_gpus: int=0,
+        max_epochs: int=20,
+        learning_rate: float=1e-3,
+        batch_size: int=64,
+        use_map: bool=False,
+        num_heads: List[int] = [3, 4], # num_heads[0] is the number of heads in the already trained model, with num_heads[1] the first step of CL extension
+):
+    '''
+    Train the model with the given datasets and parameters continually. First, load an already trained model with some number of heads,
+    then extend it with new heads in steps. 
+
+    Args:
+        base_experiment_name (str): The base name of the previous experiment. The model will be loaded from {base_experiment_name}_{num_heads[0]}.
+        new_experiment_name (str): The base name of the new experiment. Actual names are {new_experiment_name}_{num_heads[i]}, with i the current step (ignoring step 0).
+        model (str): The model to train.
+        train_dataset (List[BaseDataset]): The training dataset. 
+        val_dataset (List[BaseDataset]): The validation dataset. 
+        logs_dir (str): The directory to save logs.
+        n_gpus (int): The number of GPUs to use for training.
+        max_epochs (int): The maximum number of epochs to train (per step).
+        learning_rate (float): The learning rate for the optimizer.
+        batch_size (int): The batch size for training.
+        use_map (bool): Whether to use mappability for training.
+        num_heads (List[int]): Number of heads at each step of the continual training. Model is trained with num_heads[0] heads first, then num_heads[1], and so on.
+    '''
+    # Validate num_heads
+    if (len(num_heads) < 2):
+        raise ValueError("At least two values must be provided for num_heads when training continually.")
+    for i in range(len(num_heads)):
+        if num_heads[i] <= 0: 
+            raise ValueError("Cannot train on less than one head at any point.")
+        if i > 0:
+            if num_heads [i-1] >= num_heads[i]:
+                raise ValueError("Number of heads must be strictly increasing.")
+
+    # Check if gpu is available 
+    if n_gpus > 0 and not torch.cuda.is_available():
+        n_gpus = 0
+        print("No GPU available, using CPU instead.")
+
+    # Count the number of GPUs available
+    if n_gpus > torch.cuda.device_count():
+        n_gpus = torch.cuda.device_count()
+        print(f"Requested {n_gpus} GPUs, but only {torch.cuda.device_count()} are available. Using {n_gpus} GPUs instead.")
+
+    # Create model with more heads 
+    model_type = model 
+    model = _get_model(model_type, use_map=use_map, num_heads=num_heads[0])
+
+    # Load the previous model
+    trainer = Trainer(
+        filename=base_experiment_name + f'_{num_heads[0]}', 
+        model=model,
+        criterion=nn.PoissonNLLLoss(log_input=False),
+        unmap_criterion=use_map,
+        batch_size=batch_size,
+        logger=TextLogger(logs_dir=logs_dir), 
+        n_gpus=n_gpus,
+        num_heads=num_heads[0],
+    )
+
+    for i in range(1, len(num_heads)):
+        model_tmp = _get_model(model_type, use_map=use_map, num_heads=num_heads[i])
+
+        print(f'Loading best model weights from {trainer.filename}')
+        checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / trainer.filename / 'checkpoint.pth'
+        trainer.load_weights(checkpoint_path)
+
+        print('Loading model weights from previous step.')
+        model_tmp.load_state_dict(trainer.model.state_dict(), strict=False) # strict=False should allow loading when number of heads changes 
+        model = model_tmp 
+
+        print('Successfully loaded model weights.')
+
+        # Initialize new trainer 
+        print(f'Initializing trainer for step {i}.')
+        trainer = Trainer(
+            filename=new_experiment_name + f'_{num_heads[i]}', 
+            model=model,
+            criterion=nn.PoissonNLLLoss(log_input=False),
+            unmap_criterion=use_map,
+            batch_size=batch_size,
+            logger=TextLogger(logs_dir=logs_dir), 
+            n_gpus=n_gpus,
+            num_heads=num_heads[i],
+        )
+
+        # Train the new model 
+        print(f'Starting training for the step {i} with {num_heads[i]} heads.')
+        trainer.fit(
+            train_dset=train_dataset[0], # TODO check if works 
+            val_dset=val_dataset[0],
+            nr_epochs=max_epochs,
+            learning_rate=learning_rate,
+        )
+        print(f'Finished training for the step {i} with {num_heads[i]} heads.')
+    print('Finished continually extending the model.')
+    print(f'Final model is saved as {new_experiment_name}_{num_heads[-1]} in {logs_dir}.')
 
 
 def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False,  num_heads: int=1, target_head:int = 0):
