@@ -378,12 +378,11 @@ def _fit(
         gamma=0.9
     )
 
-    # Disabled early stopping temporarily because it messes up CL. Need to figure out how to 
-    # remove the bug which causes the count of no-improvement epochs to carry over between 
-    # CL steps. 
-    early_stopping_after_no_improvement = 0 # Set to 0 for no early stopping
+    early_stopping_after_no_improvement = 5 # Set to 0 for no early stopping
     no_improvement_for = 0
     best_val_score = -1
+
+    print(f"No improvement for: {no_improvement_for} epochs.")
 
     # Verify that the best_val_score is -1 at the start of each stage of CL 
     print(f'Starting training with num_heads={num_heads} and best_val_score={best_val_score}.')
@@ -454,7 +453,7 @@ def _fit(
                 no_improvement_for += 1 
                 if (epoch != nr_epochs - 1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
                     stop_early += 1
-
+        print(f"No improvement for: {no_improvement_for} epochs.")
         if ddp_enabled:
             dist.all_reduce(stop_early)
         if stop_early == 1:
