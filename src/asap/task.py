@@ -75,6 +75,67 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
 
+def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
+    '''
+    Evaluate the model on the given dataset.
+    Args:
+        base_experiment_name (str): The name of the model whose weights will be loaded.
+        new_experiment_name (str): The name of the experiment for the new head.
+        model (str): The model to evaluate.
+        train_dataset: The training dataset.
+        val_dataset: The validation dataset for early stopping.
+        logs_dir (str): The directory to load model checkpoints from.
+        batch_size (int): The batch size for evaluation.
+        use_map (bool): If mappability information was used during training.
+        num_heads (int): The number of heads for the new model (base model number of heads+1)
+    '''
+    if n_gpus > 0 and not torch.cuda.is_available():
+        n_gpus = 0
+        print("No GPU available, using CPU instead.")
+    
+    # Count the number of GPUs available
+    if n_gpus > torch.cuda.device_count():
+        n_gpus = torch.cuda.device_count()
+        print(f"Requested {n_gpus} GPUs, but only {torch.cuda.device_count()} are available. Using {n_gpus} GPUs instead.")
+
+    # Initialize the model
+    model = _get_model(model, use_map=use_map, num_heads=num_heads)
+    
+    # freeze old heads
+    for param in model.core.heads[:-1].parameters():
+        param.requires_grad = False
+
+    # set modes
+    model.train()
+    for head in model.core.heads[:-1]:
+        head.eval()
+
+    # Initialize the trainer with the model and datasets
+    trainer = Trainer(
+        filename=new_experiment_name, 
+        model=model,
+        criterion=nn.PoissonNLLLoss(log_input=False),
+        unmap_criterion=use_map,
+        batch_size=batch_size,
+        logger=TextLogger(logs_dir=logs_dir), 
+        n_gpus=n_gpus,
+        fine_tune=True,
+        num_heads=num_heads,
+    )
+
+    print(f'Loading best model weights from {base_experiment_name}')
+    checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / base_experiment_name / 'checkpoint.pth'
+
+    # Load the file manually to use strict=False
+    checkpoint = torch.load(checkpoint_path, map_location='cpu') # Load to CPU first to avoid OOM
+    trainer.model.load_state_dict(checkpoint, strict=False)
+
+
+    # Start training
+    trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
+    print("trained a new model")
+
+
 def train_new_head(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_original_heads: int=1):
     '''
     Evaluate the model on the given dataset.

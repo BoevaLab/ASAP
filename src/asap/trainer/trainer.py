@@ -31,6 +31,7 @@ class Trainer:
                  nr_tracks: int = 1,
                  num_heads: int = 1,
                  linear_probe=False,
+                 fine_tune=False,
                  ):
         self.filename = filename
         self.model = model
@@ -45,6 +46,7 @@ class Trainer:
         self.batch_size = batch_size
         self.num_heads = num_heads
         self.linear_probe = linear_probe
+        self.fine_tune = fine_tune
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
@@ -77,6 +79,7 @@ class Trainer:
                     self.filename,
                     self.nr_devices,
                     self.linear_probe,
+                    self.fine_tune,
                     port,
                     self.num_heads
                 ),
@@ -110,6 +113,7 @@ class Trainer:
                 ddp_enabled=False,
                 num_heads=self.num_heads,
                 linear_probe=self.linear_probe,
+                fine_tune=self.fine_tune
             )
 
     def predict(self, gen):
@@ -322,6 +326,7 @@ def _ddp_and_fit(
         filename,
         world_size,
         linear_probe,
+        fine_tune,
         port=12355,
         num_heads=1,
     ):
@@ -353,6 +358,7 @@ def _ddp_and_fit(
         ddp_enabled=True,
         num_heads=num_heads,
         linear_probe=linear_probe,
+        fine_tune=fine_tune,
     )
     dist.destroy_process_group()
 
@@ -371,12 +377,12 @@ def _fit(
         ddp_enabled: bool,
         num_heads: int,
         linear_probe=False,
+        fine_tune=False
     ):
 
-    if linear_probe:
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
-    else:
-        optimizer = configure_adamw(model, lr=learning_rate)
+
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
+
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
         optimizer=optimizer,
         warmup_steps=int(len(train_gen) * 0.25),
@@ -401,6 +407,7 @@ def _fit(
             criterion,
             unmap_criterion,
             linear_probe,
+            fine_tune,
             num_heads)
         after = datetime.now()
         print(f'Epoch {epoch}: stop training at {after}')
@@ -421,10 +428,10 @@ def _fit(
             predictions, true = val_res
             del val_res
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
-            start_head = num_heads-1 if linear_probe else 0
+            start_head = num_heads-1 if (linear_probe or fine_tune) else 0
             for head in range(start_head, num_heads):
                 predictions_head = predictions[..., head].flatten().numpy()
-                if linear_probe:
+                if linear_probe or fine_tune:
                     true_head =  true[..., 0].flatten().numpy()
                 else:
                     true_head =  true[..., head].flatten().numpy()
@@ -465,10 +472,14 @@ def _fit(
     print('Completed training!')
 
 
-def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, linear_probe, num_heads=1):
+def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, linear_probe, fine_tune, num_heads=1):
     if linear_probe:
         model.eval()
         model.core.heads[-1].train()
+    elif fine_tune:
+        model.train()
+        for head in model.core.heads[:-1]:
+            head.eval() 
     else:
         model.train()
 
@@ -478,7 +489,7 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
         # pbar if on rank 0
         train_gen = tqdm(train_gen)
     
-    start_head = num_heads-1 if linear_probe else 0
+    start_head = num_heads-1 if linear_probe or fine_tune else 0
 
     for X_i, m_i, y_i in train_gen:
         X_i = X_i.to(rank)
@@ -494,13 +505,17 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
             # only use the last head
             base_loss = 0
             for head in range(start_head, num_heads):
-                base_loss += criterion(output[head], y_i[..., head:head+1])
+                if linear_probe or fine_tune:
+                    base_loss += criterion(output[head], y_i)
+                else:
+                    base_loss += criterion(output[head], y_i[..., head:head+1])
             loss = base_loss + unmap_loss
         else:
             output = model(X_i)
             loss = 0
             for head in range(start_head, num_heads):
-                if linear_probe:
+                if linear_probe or fine_tune:
+                    print("Training head ", head, "out of",  len(output))
                     loss += criterion(output[head], y_i)
                 else:
                     loss += criterion(output[head], y_i[..., head:head+1])
