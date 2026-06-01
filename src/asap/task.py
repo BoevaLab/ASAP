@@ -258,6 +258,7 @@ def extend_multiheaded_model_continually(
         batch_size: int=64,
         use_map: bool=False,
         num_heads: List[int] = [3, 4], # num_heads[0] is the number of heads in the already trained model, with num_heads[1] the first step of CL extension
+        checkpoint_on_new_heads_only: bool=False, 
 ):
     '''
     Train the model with the given datasets and parameters continually. First, load an already trained model with some number of heads,
@@ -276,6 +277,7 @@ def extend_multiheaded_model_continually(
         batch_size (int): The batch size for training.
         use_map (bool): Whether to use mappability for training.
         num_heads (List[int]): Number of heads at each step of the continual training. Model is trained with num_heads[0] heads first, then num_heads[1], and so on.
+        checkpoint_on_new_heads_only (bool): Whether to do validation only on the new heads.
     '''
     # Validate num_heads
     if (len(num_heads) < 2):
@@ -340,12 +342,14 @@ def extend_multiheaded_model_continually(
         )
 
         # Train the new model 
+        # TODO val only on new heads
         print(f'Starting training for the step {i} with {num_heads[i]} heads.')
         trainer.fit(
-            train_dset=train_dataset[0], # TODO check if works 
+            train_dset=train_dataset[0], 
             val_dset=val_dataset[0],
             nr_epochs=max_epochs,
             learning_rate=learning_rate,
+            val_on_heads=list(range(num_heads[i-1], num_heads[i])) if checkpoint_on_new_heads_only else None
         )
         print(f'Finished training for the step {i} with {num_heads[i]} heads.')
     print('Finished continually extending the model.')

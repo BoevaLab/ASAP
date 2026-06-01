@@ -56,7 +56,7 @@ class Trainer:
             self.device = 'cpu'
             self.model.to(self.device)
 
-    def fit(self, train_dset, val_dset, nr_epochs, learning_rate):
+    def fit(self, train_dset, val_dset, nr_epochs, learning_rate, val_on_heads=None):
         print(f'Training {self.filename}...')
         if self.nr_devices > 1:
             port = 10000 + randint(0,2355)
@@ -75,7 +75,8 @@ class Trainer:
                     self.filename,
                     self.nr_devices,
                     port,
-                    self.num_heads
+                    self.num_heads,
+                    val_on_heads
                 ),
                 nprocs=self.nr_devices
             )
@@ -105,7 +106,8 @@ class Trainer:
                 self.logger,
                 self.filename,
                 ddp_enabled=False,
-                num_heads=self.num_heads
+                num_heads=self.num_heads,
+                val_on_heads=val_on_heads,
             )
 
     def predict(self, gen):
@@ -324,6 +326,7 @@ def _ddp_and_fit(
         world_size,
         port=12355,
         num_heads=1,
+        val_on_heads=None
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
@@ -352,6 +355,7 @@ def _ddp_and_fit(
         filename=filename,
         ddp_enabled=True,
         num_heads=num_heads,
+        val_on_heads=val_on_heads
     )
     dist.destroy_process_group()
 
@@ -369,6 +373,7 @@ def _fit(
         filename: str,
         ddp_enabled: bool,
         num_heads: int,
+        val_on_heads: Union[None, list]=None 
     ):
     optimizer = configure_adamw(model, lr=learning_rate)
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
@@ -387,7 +392,7 @@ def _fit(
     # Verify that the best_val_score is -1 at the start of each stage of CL 
     print(f'Starting training with num_heads={num_heads} and best_val_score={best_val_score}.')
 
-
+    # TODO if val_on_heads not None, val only on those heads 
     for epoch in range(nr_epochs):
         if ddp_enabled:
             train_gen.sampler.set_epoch(epoch)
@@ -407,6 +412,7 @@ def _fit(
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
             logger.log(train_log_payload, step=epoch)
 
+        # TODO if val_on_heads not None, val only on those heads 
         val_res = _predict(model, val_gen, rank, ddp_enabled=ddp_enabled)
 
         epoch_val_sum = 0.0
@@ -419,7 +425,10 @@ def _fit(
             predictions, true = val_res
             del val_res 
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
+
             for head in range(num_heads): 
+                if val_on_heads is not None and head not in val_on_heads:
+                    continue
                 predictions_head, true_head = predictions[..., head].flatten().numpy(), true[..., head].flatten().numpy()
                 val_log_payload = compute_metrics(
                     predictions_head,
@@ -434,25 +443,27 @@ def _fit(
                 print(f'\tVal pearson r: {val_log_payload["val/pearson_r"]}')
                 print('-----------------------------------------')
                 epoch_val_sum += val_log_payload['val/pearson_r']
-                # if val_log_payload['val/pearson_r'] > best_val_score:
-                #     best_val_score = val_log_payload['val/pearson_r']
-                #     logger.save_model(model, filename)
-                #     # handle early stopping
-                #     no_improvement_for = 0
-                # else:
-                #     no_improvement_for += 1
-                #     if (epoch != nr_epochs -1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
-                #         stop_early += 1
+                
             # Best mode saving (per epoch not per head)
-            if (epoch_val_sum / num_heads) > best_val_score:
-                best_val_score = epoch_val_sum / num_heads 
-                logger.save_model(model, filename)
-                # TODO handle early stopping 
-                no_improvement_for = 0
-            else: 
-                no_improvement_for += 1 
-                if (epoch != nr_epochs - 1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
-                    stop_early += 1
+            if val_on_heads is None:
+                if (epoch_val_sum / num_heads) > best_val_score:
+                    best_val_score = epoch_val_sum / num_heads 
+                    logger.save_model(model, filename)
+                    no_improvement_for = 0
+                else: 
+                    no_improvement_for += 1 
+                    if (epoch != nr_epochs - 1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
+                        stop_early += 1
+            else:
+                headcount = len(val_on_heads)
+                if (epoch_val_sum / headcount) > best_val_score:
+                    best_val_score = epoch_val_sum / headcount
+                    logger.save_model(model, filename)
+                    no_improvement_for = 0
+                else: 
+                    no_improvement_for += 1
+                    if (epoch != nr_epochs - 1) and early_stopping_after_no_improvement and no_improvement_for >= early_stopping_after_no_improvement:
+                        stop_early += 1
         print(f"No improvement for: {no_improvement_for} epochs.")
         if ddp_enabled:
             dist.all_reduce(stop_early)
