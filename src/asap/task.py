@@ -77,17 +77,21 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
 
 def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
     '''
-    Evaluate the model on the given dataset.
+    Add a new head to a bse model and train it using finetuining
+    
     Args:
-        base_experiment_name (str): The name of the model whose weights will be loaded.
-        new_experiment_name (str): The name of the experiment for the new head.
-        model (str): The model to evaluate.
+        base_experiment_name(str): The name of the base model 
+        new_experiment_name (str): The name of the new experiment. This is how the finetuned model will be saved
+        model (str): The model to train.
         train_dataset: The training dataset.
-        val_dataset: The validation dataset for early stopping.
-        logs_dir (str): The directory to load model checkpoints from.
-        batch_size (int): The batch size for evaluation.
-        use_map (bool): If mappability information was used during training.
-        num_heads (int): The number of heads for the new model (base model number of heads+1)
+        val_dataset: The validation dataset.
+        logs_dir (str): The directory to save logs.
+        n_gpus (int): The number of GPUs to use for training.
+        max_epochs (int): The maximum number of epochs to train.
+        learning_rate (float): The learning rate for the optimizer.
+        batch_size (int): The batch size for training.
+        use_map (bool): Whether to use mappability for training.
+        num_heads (int): The number of heads (=num of prediction signals) of the new model (=num base heads + 1)
     '''
     if n_gpus > 0 and not torch.cuda.is_available():
         n_gpus = 0
@@ -136,17 +140,23 @@ def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model
     print("trained a new model")
 
 
-def train_new_head(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_original_heads: int=1):
+def train_new_head_lp(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_original_heads: int=1):
     '''
-    Evaluate the model on the given dataset.
+    Add a new head to a bse model and train it using linear probing
+    
     Args:
-        base_experiment_name (str): The name of the model whose weights will be loaded.
-        new_experiment_name (str): The name of the experiment for the new head.
-        model (str): The model to evaluate.
-        eval_dataset: The evaluation dataset.
-        logs_dir (str): The directory to load model checkpoints from.
-        batch_size (int): The batch size for evaluation.
-        use_map (bool): If mappability information was used during training.
+        base_experiment_name(str): The name of the base model 
+        new_experiment_name (str): The name of the new experiment. This is how the finetuned model will be saved
+        model (str): The model to train.
+        train_dataset: The training dataset.
+        val_dataset: The validation dataset.
+        logs_dir (str): The directory to save logs.
+        n_gpus (int): The number of GPUs to use for training.
+        max_epochs (int): The maximum number of epochs to train.
+        learning_rate (float): The learning rate for the optimizer.
+        batch_size (int): The batch size for training.
+        use_map (bool): Whether to use mappability for training.
+        num_original_heads (int): The number of heads (=num of prediction signals) of the old model
     '''
     if n_gpus > 0 and not torch.cuda.is_available():
         n_gpus = 0
