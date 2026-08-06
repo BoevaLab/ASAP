@@ -381,7 +381,10 @@ def _fit(
     ):
 
 
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
+    if linear_probe:
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
+    else:
+        optimizer = configure_adamw(model, lr=learning_rate)
 
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
         optimizer=optimizer,
