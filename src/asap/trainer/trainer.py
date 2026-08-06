@@ -60,7 +60,7 @@ class Trainer:
             self.device = 'cpu'
             self.model.to(self.device)
 
-    def fit(self, train_dset, val_dset, nr_epochs, learning_rate):
+    def fit(self, train_dset, val_dset, nr_epochs, learning_rate, val_on_heads=None):
         print(f'Training {self.filename}...')
         if self.nr_devices > 1:
             port = 10000 + randint(0,2355)
@@ -81,7 +81,8 @@ class Trainer:
                     self.linear_probe,
                     self.fine_tune,
                     port,
-                    self.num_heads
+                    self.num_heads,
+                    val_on_heads
                 ),
                 nprocs=self.nr_devices
             )
@@ -113,7 +114,8 @@ class Trainer:
                 ddp_enabled=False,
                 num_heads=self.num_heads,
                 linear_probe=self.linear_probe,
-                fine_tune=self.fine_tune
+                fine_tune=self.fine_tune,
+                val_on_heads=val_on_heads
             )
 
     def predict(self, gen):
@@ -329,6 +331,7 @@ def _ddp_and_fit(
         fine_tune,
         port=12355,
         num_heads=1,
+        val_on_heads=None
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
@@ -359,6 +362,7 @@ def _ddp_and_fit(
         num_heads=num_heads,
         linear_probe=linear_probe,
         fine_tune=fine_tune,
+        val_on_heads=val_on_heads
     )
     dist.destroy_process_group()
 
@@ -377,7 +381,8 @@ def _fit(
         ddp_enabled: bool,
         num_heads: int,
         linear_probe=False,
-        fine_tune=False
+        fine_tune=False,
+        val_on_heads: Union[None, list]=None
     ):
 
 
@@ -432,6 +437,9 @@ def _fit(
             del val_res
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
             start_head = num_heads-1 if (linear_probe or fine_tune) else 0
+            if start_head == 0 and val_on_heads is not None:
+                start_head = val_on_heads[0]
+                # TODO verify 
             for head in range(start_head, num_heads):
                 predictions_head = predictions[..., head].flatten().numpy()
                 if linear_probe or fine_tune:
