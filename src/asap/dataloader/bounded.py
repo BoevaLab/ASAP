@@ -51,8 +51,8 @@ class BoundedDataset(BaseDataset):
         if self.chroms:
             self.setup()
 
-    def _generate_chrom_data(self, chrom: int) -> Tuple[np.ndarray, np.ndarray]:
-        X, y, seq_starts = bw_to_data.get_wg_filtered_data(
+    def _generate_chrom_data(self, chrom: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        chrom_seq, mappability, chrom_y, seq_starts = bw_to_data.get_wg_filtered_data(
             genome=self.genome,
             signal_files=self.signal_files,
             chrom=chrom,
@@ -67,4 +67,4 @@ class BoundedDataset(BaseDataset):
             memmap=self.memmap,
             generated=self.generated,
         )
-        return X, y, seq_starts
+        return chrom_seq, mappability, chrom_y, seq_starts

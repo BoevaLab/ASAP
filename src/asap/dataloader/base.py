@@ -87,15 +87,16 @@ class BaseDataset(Dataset):
         pathlib.Path(self.generated).mkdir(parents=True, exist_ok=True)
         # chroms have been grouped by amount of bounded data per chromosome to balance folds
         self.chrom_lengths = []
-        self.X, self.y, self.seq_starts = [], [], []
+        self.chrom_seq, self.mappability, self.chrom_y, self.seq_starts = [], [], [], []
         if self.signal_files is None:
-            self.y = None
+            self.chrom_y = None
         for chrom in self.chroms:
-            X_, y_, seq_starts_ = self._generate_chrom_data(chrom)
-            self.chrom_lengths.append(len(X_))
-            self.X.append(X_)
-            if y_ is not None:
-                self.y.append(y_)
+            chrom_seq_, mappability_, chrom_y_, seq_starts_ = self._generate_chrom_data(chrom)
+            self.chrom_lengths.append(len(seq_starts_))
+            self.chrom_seq.append(chrom_seq_)
+            self.mappability.append(mappability_)
+            if chrom_y_ is not None:
+                self.chrom_y.append(chrom_y_)
             self.seq_starts.append(seq_starts_)
         self.cum_chrom_lengths = np.cumsum(self.chrom_lengths)
 
@@ -128,29 +129,34 @@ class BaseDataset(Dataset):
             idx = index - self.cum_chrom_lengths[chrom_idx - 1]
         else:
             idx = index
-        y = None
+
+        start = self.seq_starts[chrom_idx][idx]
         if self.random_shift:
-            shift = random.randint(
-                0, self.window_size // self.bin_size
-            ) # take a random window within step_size
-            x_shift = shift * self.bin_size
-            X = self.X[chrom_idx][
-                idx, x_shift : x_shift + (self.window_size + 2 * self.margin_size)
-            ]
-            if self.y is not None:
-                y = self.y[chrom_idx][
-                    idx, shift : shift + (self.window_size // self.bin_size)
-            ]
+            # take a random window within step_size, in bp
+            start = start + random.randint(0, self.window_size // self.bin_size) * self.bin_size
+
+        chrom_seq = self.chrom_seq[chrom_idx]
+        X = chrom_seq[start - self.margin_size : start + self.window_size + self.margin_size]
+
+        # mappability channel is only meaningful (not all-ones filler) when
+        # unmap_threshold is a soft threshold -- matches the original behaviour,
+        # where strict filtering (unmap_threshold == 0) never produced a real
+        # per-window mappability channel either.
+        track = self.mappability[chrom_idx]
+        if track is not None and self.unmap_threshold != 0:
+            m = track[start - self.margin_size : start + self.window_size + self.margin_size].astype(np.float32)
         else:
-            X = self.X[chrom_idx][idx]
-            if self.y is not None:
-                y = self.y[chrom_idx][idx]
+            m = np.ones_like(X, dtype=np.float32)
+        m = m[..., np.newaxis]
+
+        y = None
+        if self.chrom_y is not None:
+            y_raw = self.chrom_y[chrom_idx][start : start + self.window_size]
+            nr_bins = self.window_size // self.bin_size
+            y = y_raw.reshape(nr_bins, self.bin_size, y_raw.shape[-1]).max(axis=1)
 
         if self.logspace and y is not None:
             y = np.log(y + 1)
-
-        m = X[..., [1]].astype(np.float32)
-        X = X[..., 0]
 
         for aug in self.augmentations:
             X, y = aug(X, y)
