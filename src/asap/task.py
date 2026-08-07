@@ -400,7 +400,8 @@ def eval_robustness(experiment_name: str, model: str, eval_dataset: BaseDataset,
         scores[chrom] = {'cov': float(np.nanmean(cov)), 'cov_per_bin': {f'bin_{i}': float(cov_per_bin[i]) for i in range(len(cov_per_bin))}}
     return scores
 
-def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_file: str, logs_dir: str, out_dir: str, genome: str, chroms: List[int]=[*range(1,23)], use_map: bool=False, export_bigwig: str=None, scale: dict | float=1.0):
+def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_file: str, logs_dir: str, out_dir: str, genome: str, chroms: List[int]=[*range(1,23)], use_map: bool=False, export_bigwig: str=None, scale: dict | float=1.0, num_heads=1,
+        target_head=0):
     """
     Predict ATAC-seq for SNVs using the trained model.
     Args:
@@ -427,7 +428,7 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
     snv_file_name = pathlib.Path(snv_file).stem.split('.')[0]
 
     # Initialize the model
-    model = _get_model(model, use_map=use_map)
+    model = _get_model(model, use_map=use_map, num_heads=num_heads)
     checkpoint_path = pathlib.Path(logs_dir) / experiment_name / 'checkpoint.pth'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     state_dict = torch.load(checkpoint_path, map_location=device)
@@ -451,6 +452,7 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
         window_size=window_size,
         bin_size=bin_size,
         device=device,
+        target_head=target_head
     )
 
     # Save the results to a CSV file
