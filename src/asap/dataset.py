@@ -1,7 +1,7 @@
 from .dataloader import WGDataset, PeakDataset
 from typing import List
 
-def training_datasets(signal_file: str, genome: str, train_chroms: List[int], val_chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None, memmap: bool = True):
+def training_datasets(signal_file: str, genome: str, train_chroms: List[int], val_chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None):
     '''
     Create training and validation datasets for the model.
     Args:
@@ -12,9 +12,8 @@ def training_datasets(signal_file: str, genome: str, train_chroms: List[int], va
         generated (str): Path to the generated data.
         blacklist_file (List[str]): List of paths to blacklist files (including SNVs).
         unmap_file (str): Path to the unmapped regions file.
-        memmap (bool): Whether to memory-map the cached data arrays instead of loading them fully into RAM.
     '''
-
+    
     train_dataset = WGDataset(
         genome=genome,
         signal_files=signal_file,
@@ -30,7 +29,7 @@ def training_datasets(signal_file: str, genome: str, train_chroms: List[int], va
         unmap_threshold=0.35,
         logspace=True,
         output_format="ohe",
-        memmap=memmap,
+        memmap=False,
         generated=generated,
         is_train=True,
         is_robustness=False,
@@ -52,7 +51,7 @@ def training_datasets(signal_file: str, genome: str, train_chroms: List[int], va
         unmap_threshold=0,
         logspace=True,
         output_format="ohe",
-        memmap=memmap,
+        memmap=False,
         generated=generated,
         is_train=False,
         is_robustness=False,
@@ -61,7 +60,7 @@ def training_datasets(signal_file: str, genome: str, train_chroms: List[int], va
 
     return train_dataset, val_dataset
 
-def peak_dataset(signal_file: str, peak_file: str, genome: str, chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None, memmap: bool = True):
+def peak_dataset(signal_file: str, peak_file: str, genome: str, chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None):
     '''
     Create a peak dataset for evaluation.
     Args:
@@ -72,7 +71,6 @@ def peak_dataset(signal_file: str, peak_file: str, genome: str, chroms: List[int
         generated (str): Path to the generated data.
         blacklist_file (List[str]): List of paths to blacklist files (including SNVs).
         unmap_file (str): Path to the unmapped regions file.
-        memmap (bool): Whether to memory-map the cached data arrays instead of loading them fully into RAM.
     '''
     dataset = PeakDataset(
         genome=genome,
@@ -90,7 +88,7 @@ def peak_dataset(signal_file: str, peak_file: str, genome: str, chroms: List[int
         unmap_threshold=0,
         logspace=True,
         output_format="ohe",
-        memmap=memmap,
+        memmap=False,
         generated=generated,
         is_robustness=False,
     )
@@ -98,7 +96,7 @@ def peak_dataset(signal_file: str, peak_file: str, genome: str, chroms: List[int
 
     return dataset
 
-def robustness_peak_dataset(signal_file: str, peak_file: str, genome: str, chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None, memmap: bool = True):
+def robustness_peak_dataset(signal_file: str, peak_file: str, genome: str, chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None):
     '''
     Create a peak dataset for robustness evaluation.
     Args:
@@ -109,7 +107,6 @@ def robustness_peak_dataset(signal_file: str, peak_file: str, genome: str, chrom
         generated (str): Path to the generated data.
         blacklist_file (List[str]): List of paths to blacklist files (including SNVs).
         unmap_file (str): Path to the unmapped regions file.
-        memmap (bool): Whether to memory-map the cached data arrays instead of loading them fully into RAM.
     '''
     dataset = PeakDataset(
         genome=genome,
@@ -127,7 +124,7 @@ def robustness_peak_dataset(signal_file: str, peak_file: str, genome: str, chrom
         unmap_threshold=0,
         logspace=True,
         output_format="ohe",
-        memmap=memmap,
+        memmap=False,
         generated=generated,
         is_robustness=True,
     )
@@ -135,7 +132,7 @@ def robustness_peak_dataset(signal_file: str, peak_file: str, genome: str, chrom
 
     return dataset
 
-def wg_dataset(signal_file: str, genome: str, chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None, memmap: bool = True):
+def wg_dataset(signal_file: str, genome: str, chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None):
     '''
     Create a whole genome dataset for evaluation.
     Args:
@@ -145,7 +142,6 @@ def wg_dataset(signal_file: str, genome: str, chroms: List[int], generated: str,
         generated (str): Path to the generated data.
         blacklist_file (List[str]): List of paths to blacklist files (including SNVs).
         unmap_file (str): Path to the unmapped regions file.
-        memmap (bool): Whether to memory-map the cached data arrays instead of loading them fully into RAM.
     '''
     dataset = WGDataset(
         genome=genome,
@@ -162,7 +158,7 @@ def wg_dataset(signal_file: str, genome: str, chroms: List[int], generated: str,
         unmap_threshold=0,
         logspace=True,
         output_format="ohe",
-        memmap=memmap,
+        memmap=False,
         generated=generated,
         is_train=False,
         is_robustness=False,
@@ -171,7 +167,7 @@ def wg_dataset(signal_file: str, genome: str, chroms: List[int], generated: str,
 
     return dataset
 
-def robustness_wg_dataset(signal_file: str, genome: str, chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None, memmap: bool = True):
+def robustness_wg_dataset(signal_file: str, genome: str, chroms: List[int], generated: str, blacklist_file: List[str] = None, unmap_file: str = None):
     '''
     Create a whole genome dataset for robustness evaluation.
     Args:
@@ -181,7 +177,6 @@ def robustness_wg_dataset(signal_file: str, genome: str, chroms: List[int], gene
         generated (str): Path to the generated data.
         blacklist_file (List[str]): List of paths to blacklist files (including SNVs).
         unmap_file (str): Path to the unmapped regions file.
-        memmap (bool): Whether to memory-map the cached data arrays instead of loading them fully into RAM.
     '''
     dataset = WGDataset(
         genome=genome,
@@ -198,7 +193,7 @@ def robustness_wg_dataset(signal_file: str, genome: str, chroms: List[int], gene
         unmap_threshold=0,
         logspace=True,
         output_format="ohe",
-        memmap=memmap,
+        memmap=False,
         generated=generated,
         is_train=False,
         is_robustness=True,
