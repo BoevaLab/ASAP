@@ -51,10 +51,10 @@ class PeakDataset(BaseDataset):
         if self.chroms:    
             self.setup()
 
-    def _generate_chrom_data(self, chrom: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _generate_chrom_data(self, chrom: int) -> Tuple[np.ndarray, np.ndarray]:
         peak_centers = _get_merged_peaks(self.bed_files, chrom)
         seq_starts = peak_centers - self.pre_process_window_size // 2
-        chrom_seq, mappability, chrom_y, seq_starts = bw_to_data.idx_to_filtered_data(
+        X, y, seq_starts = bw_to_data.idx_to_filtered_data(
             genome=self.genome,
             signal_files=self.signal_files,
             chrom=chrom,
@@ -69,7 +69,7 @@ class PeakDataset(BaseDataset):
             memmap=self.memmap,
             generated=self.generated,
         )
-        return chrom_seq, mappability, chrom_y, seq_starts
+        return X, y, seq_starts
 
 
 def _get_merged_peaks(
