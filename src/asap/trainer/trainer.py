@@ -32,23 +32,21 @@ class Trainer:
                  num_heads: int = 1,
                  linear_probe=False,
                  fine_tune=False,
-                 num_workers: int = 4,
                  ):
         self.filename = filename
         self.model = model
-        self.criterion = criterion
+        self.criterion = criterion 
         self.unmap_criterion = nn.MSELoss() if unmap_criterion is True else None
         self.train_unmap = not self.unmap_criterion is False
 
         self.logger: Logger = logger
-        self.logspace = True
+        self.logspace = True 
         self.nr_tracks = 1
         self.nr_devices = n_gpus
         self.batch_size = batch_size
         self.num_heads = num_heads
         self.linear_probe = linear_probe
         self.fine_tune = fine_tune
-        self.num_workers = num_workers
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
@@ -84,8 +82,7 @@ class Trainer:
                     self.fine_tune,
                     port,
                     self.num_heads,
-                    val_on_heads,
-                    self.num_workers
+                    val_on_heads
                 ),
                 nprocs=self.nr_devices
             )
@@ -95,15 +92,13 @@ class Trainer:
                 ddp_enabled=False,
                 dataset=train_dset,
                 batch_size=self.batch_size,
-                is_train=True,
-                num_workers=self.num_workers
+                is_train=True
             )
             val_gen = make_dataloader(
                 ddp_enabled=False,
                 dataset=val_dset,
                 batch_size=self.batch_size,
-                is_train=False,
-                num_workers=self.num_workers
+                is_train=False
             )
             _fit(    
                 self.device,
@@ -281,7 +276,6 @@ class Trainer:
             self.model.load_state_dict(state_dict)
 
 def make_dataloader(ddp_enabled, dataset, batch_size: int, is_train: bool, num_workers: int = 0, pin_memory: bool = True):
-    persistent_workers = num_workers > 0
     # if using DDP, use DistributedSampler
     if ddp_enabled:
         sampler = torch.utils.data.distributed.DistributedSampler(
@@ -294,7 +288,6 @@ def make_dataloader(ddp_enabled, dataset, batch_size: int, is_train: bool, num_w
             pin_memory=pin_memory,
             shuffle=False, # shuffling handled by sampler
             num_workers=num_workers,
-            persistent_workers=persistent_workers,
             sampler=sampler
         )
     else:
@@ -304,8 +297,7 @@ def make_dataloader(ddp_enabled, dataset, batch_size: int, is_train: bool, num_w
             batch_size=batch_size,
             pin_memory=pin_memory,
             shuffle=is_train,
-            num_workers=num_workers,
-            persistent_workers=persistent_workers
+            num_workers=num_workers
         )
 
 
@@ -339,8 +331,7 @@ def _ddp_and_fit(
         fine_tune,
         port=12355,
         num_heads=1,
-        val_on_heads=None,
-        num_workers=4,
+        val_on_heads=None
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
@@ -348,15 +339,13 @@ def _ddp_and_fit(
         ddp_enabled=True,
         dataset=train_dset,
         batch_size=batch_size,
-        is_train=True,
-        num_workers=num_workers
+        is_train=True
     )
     val_gen = make_dataloader(
         ddp_enabled=True,
         dataset=val_dset,
         batch_size=batch_size,
-        is_train=False,
-        num_workers=num_workers
+        is_train=False
     )
     _fit(
         rank=rank,

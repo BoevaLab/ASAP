@@ -32,10 +32,10 @@ def _get_model(model_name: str, use_map: bool = False, num_heads=1):
         raise ValueError(f'Unknown model name: {model_name}')
 
 
-def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_workers: int=4):
+def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False):
     """
     Train the model with the given datasets and parameters.
-
+    
     Args:
         experiment_name (str): The name of the experiment.
         model (str): The model to train.
@@ -47,13 +47,12 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
         learning_rate (float): The learning rate for the optimizer.
         batch_size (int): The batch size for training.
         use_map (bool): Whether to use mappability for training.
-        num_workers (int): The number of DataLoader worker processes per GPU.
     """
     # Check if gpu is available
     if n_gpus > 0 and not torch.cuda.is_available():
         n_gpus = 0
         print("No GPU available, using CPU instead.")
-
+    
     # Count the number of GPUs available
     if n_gpus > torch.cuda.device_count():
         n_gpus = torch.cuda.device_count()
@@ -64,25 +63,24 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
 
     # Initialize the trainer with the model and datasets
     trainer = Trainer(
-        filename=experiment_name,
+        filename=experiment_name, 
         model=model,
         criterion=nn.PoissonNLLLoss(log_input=False),
         unmap_criterion=use_map,
         batch_size=batch_size,
-        logger=TextLogger(logs_dir=logs_dir),
+        logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
-        num_workers=num_workers,
     )
 
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
 
-def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1, num_workers: int=4):
+def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
     '''
     Add a new head to a bse model and train it using finetuining
-
+    
     Args:
-        base_experiment_name(str): The name of the base model
+        base_experiment_name(str): The name of the base model 
         new_experiment_name (str): The name of the new experiment. This is how the finetuned model will be saved
         model (str): The model to train.
         train_dataset: The training dataset.
@@ -94,7 +92,6 @@ def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model
         batch_size (int): The batch size for training.
         use_map (bool): Whether to use mappability for training.
         num_heads (int): The number of heads (=num of prediction signals) of the new model (=num base heads + 1)
-        num_workers (int): The number of DataLoader worker processes per GPU.
     '''
     if n_gpus > 0 and not torch.cuda.is_available():
         n_gpus = 0
@@ -128,7 +125,6 @@ def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model
         n_gpus=n_gpus,
         fine_tune=True,
         num_heads=num_heads,
-        num_workers=num_workers,
     )
 
     print(f'Loading best model weights from {base_experiment_name}')
@@ -144,12 +140,12 @@ def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model
     print("trained a new model")
 
 
-def train_new_head_lp(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_original_heads: int=1, num_workers: int=4):
+def train_new_head_lp(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_original_heads: int=1):
     '''
     Add a new head to a bse model and train it using linear probing
-
+    
     Args:
-        base_experiment_name(str): The name of the base model
+        base_experiment_name(str): The name of the base model 
         new_experiment_name (str): The name of the new experiment. This is how the finetuned model will be saved
         model (str): The model to train.
         train_dataset: The training dataset.
@@ -161,7 +157,6 @@ def train_new_head_lp(base_experiment_name: str, new_experiment_name: str, model
         batch_size (int): The batch size for training.
         use_map (bool): Whether to use mappability for training.
         num_original_heads (int): The number of heads (=num of prediction signals) of the old model
-        num_workers (int): The number of DataLoader worker processes per GPU.
     '''
     if n_gpus > 0 and not torch.cuda.is_available():
         n_gpus = 0
@@ -198,7 +193,6 @@ def train_new_head_lp(base_experiment_name: str, new_experiment_name: str, model
         n_gpus=n_gpus,
         linear_probe=True,
         num_heads=num_original_heads+1,
-        num_workers=num_workers,
     )
 
     print(f'Loading best model weights from {base_experiment_name}')
@@ -213,10 +207,10 @@ def train_new_head_lp(base_experiment_name: str, new_experiment_name: str, model
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
     print("trained a new model")
 
-def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: List[BaseDataset], val_dataset: List[BaseDataset], logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1, num_workers: int=4):
+def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: List[BaseDataset], val_dataset: List[BaseDataset], logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
     """
     Train the model with the given datasets and parameters.
-
+    
     Args:
         experiment_name (str): The name of the experiment.
         model (str): The model to train.
@@ -229,14 +223,13 @@ def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: L
         batch_size (int): The batch size for training.
         use_map (bool): Whether to use mappability for training.
         num_heads (int): The number of heads (=num of prediction signals)
-        num_workers (int): The number of DataLoader worker processes per GPU.
     """
 
     # Check if gpu is available
     if n_gpus > 0 and not torch.cuda.is_available():
         n_gpus = 0
         print("No GPU available, using CPU instead.")
-
+    
     # Count the number of GPUs available
     if n_gpus > torch.cuda.device_count():
         n_gpus = torch.cuda.device_count()
@@ -247,21 +240,20 @@ def train_multiheaded_model(experiment_name : str, model: str,  train_dataset: L
 
     # Initialize the trainer with the model and datasets
     trainer = Trainer(
-        filename=experiment_name,
+        filename=experiment_name, 
         model=model,
         criterion=nn.PoissonNLLLoss(log_input=False),
         unmap_criterion=use_map,
         batch_size=batch_size,
-        logger=TextLogger(logs_dir=logs_dir),
+        logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
-        num_heads=num_heads,
-        num_workers=num_workers,
+        num_heads=num_heads
     )
 
     # Start training
     trainer.fit(train_dset=train_dataset, val_dset=val_dataset, nr_epochs=max_epochs, learning_rate=learning_rate)
 
-def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False,  num_heads: int=1, target_head:int = 0, num_workers: int=4):
+def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False,  num_heads: int=1, target_head:int = 0):
     '''
     Evaluate the model on the given dataset.
     Args:
@@ -271,7 +263,6 @@ def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDat
         logs_dir (str): The directory to load model checkpoints from.
         batch_size (int): The batch size for evaluation.
         use_map (bool): If mappability information was used during training.
-        num_workers (int): The number of DataLoader worker processes.
     '''
     n_gpus = 1 if torch.cuda.is_available() else 0
 
@@ -279,12 +270,12 @@ def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDat
     model = _get_model(model, use_map=use_map, num_heads=num_heads)
 
     trainer = Trainer(
-        filename=experiment_name,
+        filename=experiment_name, 
         model=model,
         criterion=nn.PoissonNLLLoss(log_input=False),
         unmap_criterion=use_map,
         batch_size=batch_size,
-        logger=TextLogger(logs_dir=logs_dir),
+        logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
         num_heads=num_heads
     )
@@ -293,7 +284,7 @@ def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDat
     print(f'Loading best model weights from {trainer.filename}')
     checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / trainer.filename / 'checkpoint.pth'
     trainer.load_weights(checkpoint_path)
-
+    
     test_chroms = eval_dataset.chroms
     scores = {}
     for chrom in test_chroms:
@@ -301,9 +292,8 @@ def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDat
         test_gen = make_dataloader(
             ddp_enabled=False,
             dataset=eval_dataset,
-            batch_size=batch_size,
-            is_train=False,
-            num_workers=num_workers
+            batch_size=batch_size, 
+            is_train=False
         )
 
         _, _, result_metrics = trainer.predict_and_evaluate_multihead(test_gen, target_head=target_head)
@@ -311,7 +301,7 @@ def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDat
     return scores
 
 
-def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False,  num_heads: int=1, num_workers: int=4):
+def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False,  num_heads: int=1):
     '''
     Evaluate the model on the given dataset.
     Args:
@@ -321,7 +311,6 @@ def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs
         logs_dir (str): The directory to load model checkpoints from.
         batch_size (int): The batch size for evaluation.
         use_map (bool): If mappability information was used during training.
-        num_workers (int): The number of DataLoader worker processes.
     '''
     n_gpus = 1 if torch.cuda.is_available() else 0
 
@@ -329,12 +318,12 @@ def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs
     model = _get_model(model, use_map=use_map, num_heads=num_heads)
 
     trainer = Trainer(
-        filename=experiment_name,
+        filename=experiment_name, 
         model=model,
         criterion=nn.PoissonNLLLoss(log_input=False),
         unmap_criterion=use_map,
         batch_size=batch_size,
-        logger=TextLogger(logs_dir=logs_dir),
+        logger=TextLogger(logs_dir=logs_dir), 
         n_gpus=n_gpus,
     )
 
@@ -342,7 +331,7 @@ def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs
     print(f'Loading best model weights from {trainer.filename}')
     checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / trainer.filename / 'checkpoint.pth'
     trainer.load_weights(checkpoint_path)
-
+    
     test_chroms = eval_dataset.chroms
     scores = {}
     for chrom in test_chroms:
@@ -350,9 +339,8 @@ def eval_model(experiment_name: str, model: str, eval_dataset: BaseDataset, logs
         test_gen = make_dataloader(
             ddp_enabled=False,
             dataset=eval_dataset,
-            batch_size=batch_size,
-            is_train=False,
-            num_workers=num_workers
+            batch_size=batch_size, 
+            is_train=False
         )
 
         _, _, result_metrics = trainer.predict_and_evaluate(test_gen)
@@ -372,12 +360,11 @@ def train_multiheaded_model_progressively(
         use_map: bool=False,
         num_heads: List[int] = [1, 2],
         checkpoint_on_new_heads_only: bool=False,
-        num_workers: int=4,
 ):
     '''
     Train the model with the given datasets and parameters progressively. In Progressive Joint Training (PJT),
     the number of heads should be strictly increasing at every step. In NJT*, the number of heads should be constant,
-    equal to the final number of heads.
+    equal to the final number of heads. 
 
     Args:
         experiment_name (str): The base name of the experiments. Actual names are {experiment_name}_{i}_{num_heads[i]}, with i the current step.
@@ -392,7 +379,6 @@ def train_multiheaded_model_progressively(
         use_map (bool): Whether to use mappability for training.
         num_heads (List[int]): Number of heads at each step of the progressive training. Model is trained with num_heads[0] heads first, then num_heads[1], and so on.
         checkpoint_on_new_heads_only (bool): Whether to do validation only on the new heads.
-        num_workers (int): The number of DataLoader worker processes per GPU.
     '''
 
     # Validate num_heads
@@ -428,7 +414,6 @@ def train_multiheaded_model_progressively(
         logger=TextLogger(logs_dir=logs_dir),
         n_gpus=n_gpus,
         num_heads=num_heads[0],
-        num_workers=num_workers,
     )
 
     print(f'Starting training for the initial step with {num_heads[0]} heads.')
@@ -472,7 +457,6 @@ def train_multiheaded_model_progressively(
             logger=TextLogger(logs_dir=logs_dir),
             n_gpus=n_gpus,
             num_heads=num_heads[i],
-            num_workers=num_workers,
         )
 
         # Train the new model
@@ -503,10 +487,9 @@ def extend_multiheaded_model_progressively(
         use_map: bool=False,
         num_heads: List[int] = [3, 4], # num_heads[0] is the number of heads in the already trained model, with num_heads[1] the first step of JT extension
         checkpoint_on_new_heads_only: bool=False,
-        num_workers: int=4,
 ):
     '''
-    Train the model with the given datasets and parameters progressively. Start with an already trained model
+    Train the model with the given datasets and parameters progressively. Start with an already trained model 
     with some number of heads (num_heads[0]). The following stages can have an increasing number of heads (PJT),
     or the same as the pretrained model (NJT*).
 
@@ -524,7 +507,6 @@ def extend_multiheaded_model_progressively(
         use_map (bool): Whether to use mappability for training.
         num_heads (List[int]): Number of heads at each step of the progressive training. Model is trained with num_heads[0] heads first, then num_heads[1], and so on.
         checkpoint_on_new_heads_only (bool): Whether to do validation only on the new heads.
-        num_workers (int): The number of DataLoader worker processes per GPU.
     '''
     # Validate num_heads
     if (len(num_heads) < 2):
@@ -560,7 +542,6 @@ def extend_multiheaded_model_progressively(
         logger=TextLogger(logs_dir=logs_dir),
         n_gpus=n_gpus,
         num_heads=num_heads[0],
-        num_workers=num_workers,
     )
 
     for i in range(1, len(num_heads)):
@@ -587,7 +568,6 @@ def extend_multiheaded_model_progressively(
             logger=TextLogger(logs_dir=logs_dir),
             n_gpus=n_gpus,
             num_heads=num_heads[i],
-            num_workers=num_workers,
         )
 
         # Train the new model
@@ -604,7 +584,7 @@ def extend_multiheaded_model_progressively(
     print(f'Final model is saved as {new_experiment_name}_{len(num_heads)-1}_{num_heads[-1]} in {logs_dir}.')
 
 
-def eval_robustness(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False, nr_samples_for_var: int=17, num_workers: int=4):
+def eval_robustness(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, batch_size: int=64, use_map: bool=False, nr_samples_for_var: int=17):
     '''
     Evaluate the robustness of the model on the given dataset.
     Args:
@@ -615,7 +595,6 @@ def eval_robustness(experiment_name: str, model: str, eval_dataset: BaseDataset,
         batch_size (int): The batch size for evaluation.
         use_map (bool): Whether to use mappability for evaluation.
         nr_samples_for_var (int): The number of samples for variance calculation.
-        num_workers (int): The number of DataLoader worker processes.
     '''
     # Fixed margin size for robustness evaluation
     margin = 768
@@ -648,9 +627,8 @@ def eval_robustness(experiment_name: str, model: str, eval_dataset: BaseDataset,
         test_gen = make_dataloader(
             ddp_enabled=False,
             dataset=eval_dataset,
-            batch_size=batch_size // (nr_samples_for_var - 1),
-            is_train=False,
-            num_workers=num_workers
+            batch_size=batch_size // (nr_samples_for_var - 1), 
+            is_train=False
         )
 
         _, _, cov, cov_per_bin = trainer.predict_robust_batch(test_gen, nr_samples_for_var=nr_samples_for_var, window=eval_dataset.window_size, margin=margin)
@@ -859,7 +837,7 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
         
 
 
-def export_predictions(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, out_dir: str, batch_size: int=64, use_map: bool=False, num_workers: int=4):
+def export_predictions(experiment_name: str, model: str, eval_dataset: BaseDataset, logs_dir: str, out_dir: str, batch_size: int=64, use_map: bool=False):
     """
     Export the predictions to a file.
     Args:
@@ -870,7 +848,6 @@ def export_predictions(experiment_name: str, model: str, eval_dataset: BaseDatas
         out_dir (str): The output directory for predictions.
         batch_size (int): The batch size for evaluation.
         use_map (bool): Whether to use mappability for evaluation.
-        num_workers (int): The number of DataLoader worker processes.
     """
     n_gpus = 1 if torch.cuda.is_available() else 0
 
@@ -902,9 +879,8 @@ def export_predictions(experiment_name: str, model: str, eval_dataset: BaseDatas
         test_gen = make_dataloader(
             ddp_enabled=False,
             dataset=eval_dataset,
-            batch_size=batch_size,
-            is_train=False,
-            num_workers=num_workers
+            batch_size=batch_size, 
+            is_train=False
         )
 
         _, predictions, _ = trainer.predict_and_evaluate(test_gen, no_eval=True)
