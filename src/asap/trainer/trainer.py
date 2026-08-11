@@ -52,8 +52,6 @@ class Trainer:
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
-
-            # According to Claude, this does not really do anything. TODO reconsider
             torch.backends.cudnn.enabled = False
         elif self.nr_devices == 1:
             self.ddp_enabled = False
@@ -286,20 +284,6 @@ def make_dataloader(ddp_enabled, dataset, batch_size: int, is_train: bool, num_w
     persistent_workers = num_workers > 0
     # if using DDP, use DistributedSampler
     if ddp_enabled:
-        # NOTE: DistributedSampler defaults to drop_last=False, which pads the
-        # index list by repeating the first few indices so every rank gets an
-        # equal sample count when len(dataset) isn't evenly divisible by
-        # world_size. Harmless for training (a few samples just get seen
-        # twice in some epoch). For validation/eval it's not: _predict()
-        # gathers every rank's predictions via dist.all_gather before rank 0
-        # computes metrics, so those padded/repeated samples get counted
-        # TWICE in the reported val metric each epoch - a small
-        # double-counting bias that grows (relatively) with more GPUs against
-        # a fixed val set size. 
-        # TODO fix: add a `drop_last` param to this function (default False) 
-        # and pass drop_last=True for the eval/val DistributedSampler specifically 
-        # - that drops up to world_size-1 trailing samples instead of duplicating 
-        # them, so a few samples go unevaluated rather than being double-weighted.
         sampler = torch.utils.data.distributed.DistributedSampler(
             dataset,
             shuffle=is_train
