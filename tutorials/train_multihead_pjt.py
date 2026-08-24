@@ -75,11 +75,12 @@ def main():
     asap.train_multiheaded_model_progressively(
         experiment_name=experiment_name,
         model=model_name,
-        num_heads=len(signal_files),
         train_dataset=train_comb,
         val_dataset=val_comb,
         logs_dir=logs_dir,
         n_gpus=n_gpus,
+        num_heads=[i+1 for i in range(len(signal_files))],  # in progressive training, we specify the number of heads per stage, with the last value being the final number of heads
+        checkpoint_on_new_heads_only=False, # if True, in each stage the validation score for checkpoints is only calculated on newly added heads
     )
 
     print("Training done.")
