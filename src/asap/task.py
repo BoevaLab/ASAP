@@ -77,7 +77,7 @@ def train_model(experiment_name : str, model: str, train_dataset: BaseDataset, v
 
 def train_new_head_ft(base_experiment_name: str, new_experiment_name: str, model: str, train_dataset: BaseDataset, val_dataset: BaseDataset, logs_dir: str, n_gpus: int=0, max_epochs: int=70, learning_rate: float=1e-3, batch_size: int=64, use_map: bool=False, num_heads: int=1):
     '''
-    Add a new head to a bse model and train it using finetuining
+    Add a new head to a base model and train it using finetuining
     
     Args:
         base_experiment_name(str): The name of the base model 
@@ -263,6 +263,8 @@ def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDat
         logs_dir (str): The directory to load model checkpoints from.
         batch_size (int): The batch size for evaluation.
         use_map (bool): If mappability information was used during training.
+        num_heads (int): The number of heads of the model
+        target_head (int): The head whose output is evaluated
     '''
     n_gpus = 1 if torch.cuda.is_available() else 0
 
@@ -281,7 +283,7 @@ def eval_multihead_model(experiment_name: str, model: str, eval_dataset: BaseDat
     )
 
     # for evaluation use the checkpoint of the best model
-    print(f'Loading best model weights from {trainer.filename}')
+    print(f'Loading best model weights from {trainer.filename}') #/tmp/logs/exp/check
     checkpoint_path = pathlib.Path(trainer.logger.logs_dir) / trainer.filename / 'checkpoint.pth'
     trainer.load_weights(checkpoint_path)
     
@@ -652,6 +654,8 @@ def predict_snv_atac(experiment_name: str, model: str, snv_file: str, signal_fil
         use_map (bool): Whether to use mappability for model.
         export_bigwig (str): Export predictions as bigwig for "ref", "alt", or "both".
         scale (dict | float): Scaling factor for the predictions. If a dict, it should contain scaling factor corresponding to each chromosome.
+        num_heads (int) The number of heads of the model
+        target_head (int) The zero based index of the head we want to use for predictions
     """
     window_size = 1024
     margin_size = 512
