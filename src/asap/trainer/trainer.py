@@ -28,6 +28,10 @@ class Trainer:
                  batch_size: int = None,
                  logger: Logger = None,
                  n_gpus: int = None,
+                 nr_tracks: int = 1,
+                 num_heads: int = 1,
+                 linear_probe=False,
+                 fine_tune=False,
                  ):
         self.filename = filename
         self.model = model
@@ -40,6 +44,9 @@ class Trainer:
         self.nr_tracks = 1
         self.nr_devices = n_gpus
         self.batch_size = batch_size
+        self.num_heads = num_heads
+        self.linear_probe = linear_probe
+        self.fine_tune = fine_tune
         if self.nr_devices > 1: 
             self.ddp_enabled = True
             self.device = 'cuda'
@@ -53,7 +60,7 @@ class Trainer:
             self.device = 'cpu'
             self.model.to(self.device)
 
-    def fit(self, train_dset, val_dset, nr_epochs, learning_rate):
+    def fit(self, train_dset, val_dset, nr_epochs, learning_rate, val_on_heads=None):
         print(f'Training {self.filename}...')
         if self.nr_devices > 1:
             port = 10000 + randint(0,2355)
@@ -71,7 +78,11 @@ class Trainer:
                     self.logger,
                     self.filename,
                     self.nr_devices,
-                    port
+                    self.linear_probe,
+                    self.fine_tune,
+                    port,
+                    self.num_heads,
+                    val_on_heads
                 ),
                 nprocs=self.nr_devices
             )
@@ -100,7 +111,11 @@ class Trainer:
                 self.unmap_criterion,
                 self.logger,
                 self.filename,
-                ddp_enabled=False
+                ddp_enabled=False,
+                num_heads=self.num_heads,
+                linear_probe=self.linear_probe,
+                fine_tune=self.fine_tune,
+                val_on_heads=val_on_heads
             )
 
     def predict(self, gen):
@@ -114,6 +129,42 @@ class Trainer:
         result_metrics = self.predict_and_evaluate(test_gen)
         print(result_metrics)
         return result_metrics
+
+    def predict_and_evaluate_multihead(self, gen, metrics_for_track=None, no_eval=False, target_head=0) -> Tuple[np.ndarray, np.ndarray, dict]:
+        self.model.eval()
+
+        try:
+            gen.dataset.margin_size
+        except AttributeError:
+            print("Generator has no margin size -- assuming full prediction.")
+
+        predictions, true = self.predict(gen)
+        predictions = predictions[..., target_head: target_head+1]
+        predictions = predictions.reshape((-1, 1)).detach().cpu().numpy()
+        true = true.reshape((-1, 1)).detach().cpu().numpy()
+        
+        if no_eval:
+            return true, predictions, None
+
+        metric_results = {}
+        if metrics_for_track is None:
+            # compute metrics for all tracks
+            metrics_for_track = range(self.nr_tracks)
+            metrics_ = compute_metrics(
+                    predictions.flatten(),
+                    true.flatten(),
+                    logspace_input=self.logspace
+                )
+            metric_results.update(metrics_)
+        else:
+            for track in metrics_for_track:
+                metrics_ = compute_metrics(
+                    predictions[:, track],
+                    true[:, track],
+                    logspace_input=self.logspace
+                )
+                metric_results.update(prepend_to_keys(metrics_, f"_{track}_"))
+        return true, predictions, metric_results
 
     def predict_and_evaluate(self, gen, metrics_for_track=None, no_eval=False) -> Tuple[np.ndarray, np.ndarray, dict]:
         self.model.eval()
@@ -276,7 +327,11 @@ def _ddp_and_fit(
         logger,
         filename,
         world_size,
-        port=12355
+        linear_probe,
+        fine_tune,
+        port=12355,
+        num_heads=1,
+        val_on_heads=None
     ):
     #model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model = setup_ddp(rank, world_size, model, port)
@@ -303,7 +358,11 @@ def _ddp_and_fit(
         unmap_criterion=unmap_criterion,
         logger=logger,
         filename=filename,
-        ddp_enabled=True
+        ddp_enabled=True,
+        num_heads=num_heads,
+        linear_probe=linear_probe,
+        fine_tune=fine_tune,
+        val_on_heads=val_on_heads
     )
     dist.destroy_process_group()
 
@@ -319,9 +378,19 @@ def _fit(
         unmap_criterion,
         logger: Logger,
         filename: str,
-        ddp_enabled: bool
+        ddp_enabled: bool,
+        num_heads: int,
+        linear_probe=False,
+        fine_tune=False,
+        val_on_heads: Union[None, list]=None
     ):
-    optimizer = configure_adamw(model, lr=learning_rate)
+
+
+    if linear_probe:
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
+    else:
+        optimizer = configure_adamw(model, lr=learning_rate)
+
     scheduler: torch.optim.lr_scheduler.SequentialLR = make_warmupCAWR(
         optimizer=optimizer,
         warmup_steps=int(len(train_gen) * 0.25),
@@ -333,6 +402,8 @@ def _fit(
     best_val_score = -1
 
     for epoch in range(nr_epochs):
+        before = datetime.now()
+        print(f'\nEpoch {epoch}: start training at {before}')
         if ddp_enabled:
             train_gen.sampler.set_epoch(epoch)
         train_log_payload = _train_epoch(
@@ -342,7 +413,13 @@ def _fit(
             optimizer,
             scheduler,
             criterion,
-            unmap_criterion)
+            unmap_criterion,
+            linear_probe,
+            fine_tune,
+            num_heads)
+        after = datetime.now()
+        print(f'Epoch {epoch}: stop training at {after}')
+        print(f'Epoch {epoch}: train duration {(after - before).total_seconds()}')
 
         if train_log_payload is not None and (not ddp_enabled or rank == 0):
             logger.log(train_log_payload, step=epoch)
@@ -352,27 +429,40 @@ def _fit(
         # For synchronous loop breaking
         stop_early = torch.zeros(1).to(rank)
 
+        epoch_val_sum = 0.0
+
         if not ddp_enabled or rank == 0:
             logger.log({'lr': scheduler.get_last_lr()[0]})
             predictions, true = val_res
+            del val_res
             predictions, true = torch.cat(predictions).cpu(), torch.cat(true).cpu()
-            predictions, true = predictions[..., 0].flatten().numpy(), true[..., 0].flatten().numpy()
-            val_log_payload = compute_metrics(
-                predictions,
-                true,
-                logspace_input=val_gen.dataset.logspace
-            )
-            val_log_payload = prepend_to_keys(val_log_payload, 'val/')
-            logger.log(val_log_payload, step=epoch)
-            print(f'Epoch {epoch} - {datetime.now()}')
-            if train_log_payload is not None:
-                print(f'\tTrain loss: {train_log_payload["train/loss"]}')
-            print(f'\tVal pearson r: {val_log_payload["val/pearson_r"]}')
-            print('-----------------------------------------')
-            if val_log_payload['val/pearson_r'] > best_val_score:
+            start_head = num_heads-1 if (linear_probe or fine_tune) else 0
+            if start_head == 0 and val_on_heads is not None:
+                start_head = val_on_heads[0]
+                # TODO verify 
+            for head in range(start_head, num_heads):
+                predictions_head = predictions[..., head].flatten().numpy()
+                if linear_probe or fine_tune:
+                    true_head =  true[..., 0].flatten().numpy()
+                else:
+                    true_head =  true[..., head].flatten().numpy()
+                val_log_payload = compute_metrics(
+                    predictions_head,
+                    true_head,
+                    logspace_input=val_gen.dataset.logspace
+                )
+                val_log_payload = prepend_to_keys(val_log_payload, 'val/')
+                logger.log(val_log_payload, step=epoch)
+                print(f'Epoch {epoch} - {datetime.now()}')
+                if train_log_payload is not None:
+                    print(f'\tTrain loss: {train_log_payload["train/loss"]}')
+                print(f'\tVal pearson r: {val_log_payload["val/pearson_r"]}')
+                print('-----------------------------------------')
+                epoch_val_sum += val_log_payload['val/pearson_r']
+            if(epoch_val_sum / (num_heads - start_head)) > best_val_score:
                 best_val_score = val_log_payload['val/pearson_r']
                 logger.save_model(model, filename)
-                 # handle early stopping
+                # handle early stopping
                 no_improvement_for = 0
             else:
                 no_improvement_for += 1
@@ -393,14 +483,24 @@ def _fit(
     print('Completed training!')
 
 
-def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion):
-    model.train()
+def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_criterion, linear_probe, fine_tune, num_heads=1):
+    if linear_probe:
+        model.eval()
+        model.core.heads[-1].train()
+    elif fine_tune:
+        model.train()
+        for head in model.core.heads[:-1]:
+            head.eval() 
+    else:
+        model.train()
 
     train_unmap = unmap_criterion is not None
 
     if rank == 0:
         # pbar if on rank 0
         train_gen = tqdm(train_gen)
+    
+    start_head = num_heads-1 if linear_probe or fine_tune else 0
 
     for X_i, m_i, y_i in train_gen:
         X_i = X_i.to(rank)
@@ -413,12 +513,23 @@ def _train_epoch(rank, model, train_gen, optimizer, scheduler, criterion, unmap_
             m_len = output_m_i.shape[1]
             unmap_loss = unmap_criterion(output_m_i, m_i[:, :m_len])
 
-            base_loss = criterion(output, y_i)
+            # only use the last head
+            base_loss = 0
+            for head in range(start_head, num_heads):
+                if linear_probe or fine_tune:
+                    base_loss += criterion(output[head], y_i)
+                else:
+                    base_loss += criterion(output[head], y_i[..., head:head+1])
             loss = base_loss + unmap_loss
         else:
             output = model(X_i)
-            loss = criterion(output, y_i)
-
+            loss = 0
+            for head in range(start_head, num_heads):
+                if linear_probe or fine_tune:
+                    print("Training head ", head, "out of",  len(output))
+                    loss += criterion(output[head], y_i)
+                else:
+                    loss += criterion(output[head], y_i[..., head:head+1])
         loss.backward()
         optimizer.step()
         scheduler.step()
@@ -455,31 +566,32 @@ def _predict(model, gen, rank, ddp_enabled):
     predictions = []
     true = []
 
-    for i, (X_i, _, y_i) in enumerate(gen):
-        X_i = X_i.to(rank)
-        y_i = y_i.to(rank)
-        
+    with torch.no_grad():
+        for i, (X_i, _, y_i) in enumerate(gen):
+            X_i = X_i.to(rank)
+            y_i = y_i.to(rank)
 
-        with torch.no_grad():
-            p_i = model(X_i)
+            with torch.no_grad():
+                p_i = model(X_i)
+                p_i = torch.cat(p_i, dim=-1)
 
-        if margin_size is not None:
-            y_i.flatten()
-            p_i = p_i[..., trim:-trim, :]
-        
-        y_i, p_i = y_i.contiguous(), p_i.contiguous()
-        if ddp_enabled:
-            all_predictions = [torch.zeros_like(y_i) for _ in range(dist.get_world_size())]
-            all_true = [torch.zeros_like(y_i) for _ in range(dist.get_world_size())]
-            dist.all_gather(all_predictions, p_i)
-            dist.all_gather(all_true, y_i)
+            if margin_size is not None:
+                y_i.flatten()
+                p_i = p_i[..., trim:-trim, :]
+            
+            y_i, p_i = y_i.contiguous(), p_i.contiguous()
+            if ddp_enabled:
+                all_predictions = [torch.zeros_like(y_i) for _ in range(dist.get_world_size())]
+                all_true = [torch.zeros_like(y_i) for _ in range(dist.get_world_size())]
+                dist.all_gather(all_predictions, p_i)
+                dist.all_gather(all_true, y_i)
 
-            if rank == 0:
-                predictions.extend(all_predictions)
-                true.extend(all_true)
-        else:
-            predictions.append(p_i)
-            true.append(y_i)
+                if rank == 0:
+                    predictions.extend([t.detach().cpu() for t in all_predictions])
+                    true.extend([t.detach().cpu() for t in all_true])
+            else:
+                predictions.append(p_i.detach().cpu())
+                true.append(y_i.detach().cpu())
 
     print(i)
     return predictions, true

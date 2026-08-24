@@ -5,7 +5,7 @@ def training_datasets(signal_file: str, genome: str, train_chroms: List[int], va
     '''
     Create training and validation datasets for the model.
     Args:
-        signal_file (str): Path to the signal file.
+        signal_file (list[str] or str): Path to the signal files. It can be a list for multiheaded models.
         genome (str): Path to the genome file.
         train_chroms (List[int]): List of chromosomes for training.
         val_chroms (List[int]): List of chromosomes for validation.

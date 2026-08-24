@@ -20,7 +20,7 @@ def _idx_to_ohe(idx: np.ndarray) -> np.ndarray:
     one_hot_encoded = eye[idx]
     return one_hot_encoded
 
-def add_predictions(snv: pd.DataFrame, chroms: List[int], bw_file: str, model: nn.Module, genome: str, margin_size: int, window_size: int, bin_size: int, device: torch.device) -> None:
+def add_predictions(snv: pd.DataFrame, chroms: List[int], bw_file: str, model: nn.Module, genome: str, margin_size: int, window_size: int, bin_size: int, device: torch.device, target_head=0) -> None:
     # Ensure output columns exist
     output_columns = ['signal_true', 'signal_pred_ref', 'signal_pred_alt']
     for col in output_columns:
@@ -56,8 +56,8 @@ def add_predictions(snv: pd.DataFrame, chroms: List[int], bw_file: str, model: n
             x = _idx_to_ohe(x).astype(np.float32)
             x_var = _idx_to_ohe(x_var).astype(np.float32)
 
-            ref_pred = model(torch.from_numpy(x).to(device))
-            var_pred = model(torch.from_numpy(x_var).to(device))
+            ref_pred = model(torch.from_numpy(x).to(device))[target_head]
+            var_pred = model(torch.from_numpy(x_var).to(device))[target_head]
             for (i, _), true, ref, var in zip(chr_df_i.iterrows(), y, ref_pred.cpu().detach().numpy(), var_pred.cpu().detach().numpy()):
                 snv.loc[i, 'signal_true'] = json.dumps(true.flatten().tolist())
                 snv.loc[i, 'signal_pred_ref'] = json.dumps(ref.tolist())
